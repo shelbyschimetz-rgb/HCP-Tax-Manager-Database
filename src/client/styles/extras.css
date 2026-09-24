@@ -1,0 +1,142 @@
+/* ---- Tax Manager production additions (not in the prototype stylesheet) ---- */
+
+body.tm-dark { background: #14171c; }
+
+/* Top-nav layout (was inline in the prototype) */
+.app.nav-top { grid-template-columns: 1fr; grid-template-rows: 52px 1fr; }
+.app.nav-top .topnav-row { display: flex; align-items: center; gap: 2px; padding: 0 16px; height: 52px; background: #fff; border-bottom: 1px solid var(--border-light); overflow-x: auto; }
+.app.nav-top .topnav-brand { font-weight: 700; font-size: 14px; display: flex; align-items: center; gap: 8px; margin-right: 12px; white-space: nowrap; }
+.app.nav-top .topnav-brand .sb-logo { width: 26px; height: 26px; }
+.app.nav-top .topnav-item { display: inline-flex; align-items: center; gap: 6px; padding: 0 12px; height: 52px; background: transparent; border: 0; border-bottom: 2px solid transparent; cursor: pointer; color: var(--fg-secondary); font: inherit; font-size: 13px; font-weight: 500; white-space: nowrap; }
+.app.nav-top .topnav-item:hover { color: var(--fg-primary); }
+.app.nav-top .topnav-item.active { color: var(--primary-main); border-bottom-color: var(--primary-main); font-weight: 600; }
+.app.nav-top .topnav-item .count { background: var(--grey-200); color: var(--fg-secondary); font-size: 11px; font-weight: 600; padding: 1px 7px; border-radius: 999px; }
+.app.nav-top .topnav-item.active .count { background: var(--primary-50); color: var(--primary-dark); }
+.app.nav-top .main { grid-column: 1; }
+.app.dark.nav-top .topnav-row { background: #1A1D24; border-color: #2A2E37; }
+
+/* Inputs */
+.tm-input {
+  width: 100%; height: 36px; padding: 0 10px; border: 1px solid var(--border-light); border-radius: var(--radius-md, 8px);
+  font: inherit; font-size: 13.5px; background: #fff; color: var(--fg-primary);
+}
+textarea.tm-input { height: auto; padding: 8px 10px; resize: vertical; }
+.tm-input:focus, .tm-inline-input:focus { outline: 2px solid var(--primary-50); border-color: var(--primary-main); }
+.tm-inline-input {
+  font: inherit; font-size: 13px; padding: 3px 6px; border: 1px solid var(--primary-main); border-radius: 6px; background: #fff;
+  color: var(--fg-primary); min-width: 0; width: 100%; max-width: 100%;
+}
+textarea.tm-inline-input { min-height: 64px; resize: vertical; }
+.tm-editable { cursor: pointer; border-radius: 4px; transition: background 120ms ease; }
+.tm-editable:hover { background: var(--grey-100); }
+.field .val.tm-editable { padding: 2px 4px; margin: -2px -4px; }
+.app.dark .tm-input, .app.dark .tm-inline-input { background: #14171c; color: #E8EAF0; border-color: #2A2E37; }
+
+/* Segmented control */
+.tm-seg { display: inline-flex; border: 1px solid var(--border-light); border-radius: 8px; overflow: hidden; background: #fff; }
+.tm-seg button { border: 0; background: transparent; padding: 5px 10px; font: inherit; font-size: 12px; cursor: pointer; color: var(--fg-secondary); }
+.tm-seg button + button { border-left: 1px solid var(--border-light); }
+.tm-seg button.on { background: var(--primary-50); color: var(--primary-dark); font-weight: 600; }
+.tm-seg.sm button { padding: 3px 8px; }
+.tm-pref-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 5px 0; font-size: 13px; }
+
+/* Menus */
+.tm-menu-item {
+  display: flex; align-items: center; gap: 8px; width: 100%; border: 0; background: transparent; text-align: left;
+  padding: 7px 10px; border-radius: 6px; font: inherit; font-size: 13px; color: var(--fg-primary); cursor: pointer;
+}
+.tm-menu-item:hover { background: var(--grey-100); }
+.tm-menu-item.danger { color: var(--error-main); }
+.tm-menu-item:disabled { opacity: 0.5; cursor: default; }
+.popover-host { position: relative; display: inline-flex; }
+
+/* Modal */
+.tm-modal-backdrop { position: fixed; inset: 0; background: rgba(33, 41, 52, 0.4); z-index: 2000; display: flex; align-items: flex-start; justify-content: center; padding: 8vh 16px; overflow-y: auto; animation: tmFade 140ms ease; }
+.tm-modal { background: #fff; border-radius: 12px; box-shadow: var(--shadow-modal); max-width: 100%; animation: tmRise 180ms cubic-bezier(.16,1,.3,1); }
+.tm-modal-head { display: flex; align-items: center; justify-content: space-between; padding: 14px 18px; border-bottom: 1px solid var(--grey-100); }
+.tm-modal-head .title { font-weight: 600; font-size: 15px; }
+.tm-modal-body { padding: 16px 18px; max-height: 70vh; overflow-y: auto; }
+.tm-modal-body .wiz-field { margin-bottom: 12px; }
+.tm-modal-foot { display: flex; justify-content: flex-end; gap: 8px; padding: 12px 18px; border-top: 1px solid var(--grey-100); }
+.app.dark ~ .tm-modal-backdrop .tm-modal, .tm-dark .tm-modal { background: #1A1D24; color: #E8EAF0; }
+.tm-suggest { position: absolute; left: 0; right: 0; top: 100%; background: #fff; border: 1px solid var(--border-light); border-radius: 8px; box-shadow: var(--shadow-menu); z-index: 10; margin-top: 4px; }
+.tm-suggest .res { display: flex; justify-content: space-between; padding: 8px 10px; cursor: pointer; font-size: 13px; }
+.tm-suggest .res:hover { background: var(--primary-50); }
+
+@keyframes tmFade { from { opacity: 0; } to { opacity: 1; } }
+@keyframes tmRise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+
+/* Toasts */
+.tm-toasts { position: fixed; bottom: 24px; right: 24px; z-index: 2500; display: flex; flex-direction: column; gap: 8px; max-width: 460px; }
+.tm-toasts .flash { animation: tmRise 180ms cubic-bezier(.16,1,.3,1); }
+
+/* Spinner */
+.tm-spinner { display: inline-block; border: 2px solid var(--grey-300); border-top-color: var(--primary-main); border-radius: 50%; animation: tmSpin 700ms linear infinite; }
+@keyframes tmSpin { to { transform: rotate(360deg); } }
+
+/* Kanban drag */
+.kb-card { cursor: grab; transition: transform 120ms ease, box-shadow 120ms ease; }
+.kb-card.lifted { transform: scale(1.02); box-shadow: var(--shadow-modal); opacity: 0.85; }
+.kb-col.drop-over { background: var(--primary-50); }
+.kb-col.drop-over .kb-cards { outline: 2px dashed var(--primary-main); outline-offset: -2px; border-radius: 8px; }
+.tm-shake { animation: tmShake 420ms ease; }
+@keyframes tmShake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-6px); } 40% { transform: translateX(6px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(4px); } }
+
+/* Task list extras */
+.tk-row.drop-above { box-shadow: inset 0 2px 0 var(--primary-main); }
+.tk-row.pending { opacity: 0.6; }
+.tk-row.skipped .tk-title .text { color: var(--fg-disabled); font-style: italic; text-decoration: line-through; }
+.note-entry.pending { opacity: 0.6; }
+.btn.subtle.active { background: var(--primary-50); color: var(--primary-dark); }
+.tb-icon-btn.starred { color: #F4A300; }
+tr.resolved td { opacity: 0.7; }
+tr.inactive td { opacity: 0.55; }
+.tm-toggle-btn { border: 0; background: transparent; padding: 0; cursor: pointer; font: inherit; }
+.tm-toggle-btn:disabled { cursor: default; }
+.view-tab:disabled { cursor: default; opacity: 0.6; }
+.view-tab:disabled:hover { color: inherit; }
+
+/* Search results keyboard selection */
+.tb-search .results .res.sel { background: var(--primary-50); }
+
+/* Workbook drop drag state */
+.wb-drop.drag { border-color: var(--primary-main); background: var(--primary-50); }
+
+/* Cards / empties */
+.tm-empty-card { background: #fff; border: 1px solid var(--border-light); border-radius: 10px; }
+.app.dark .tm-empty-card { background: #1A1D24; border-color: #2A2E37; }
+.tm-click { cursor: pointer; transition: box-shadow 120ms ease; }
+.tm-click:hover { box-shadow: var(--shadow-card); }
+.tm-h3 { font-size: 15px; font-weight: 600; margin: 0 0 6px; }
+.tm-settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+@media (max-width: 1100px) { .tm-settings-grid { grid-template-columns: 1fr; } }
+.tm-owner-block { border: 1px solid var(--grey-100); border-radius: 10px; padding: 10px 14px 4px; margin-bottom: 12px; }
+.tm-proj-line { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--border-light); border-radius: 8px; margin-bottom: 6px; cursor: pointer; background: #fff; }
+.tm-proj-line:hover { background: var(--grey-50); }
+.kbd { display: inline-block; min-width: 18px; padding: 0 5px; border: 1px solid var(--border-light); border-bottom-width: 2px; border-radius: 4px; font-family: ui-monospace, Menlo, monospace; font-size: 11px; text-align: center; background: var(--grey-50); color: var(--fg-primary); }
+.btn.danger { background: var(--error-main); border-color: var(--error-main); color: #fff; }
+
+/* Boot / error screen */
+.tm-boot { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 24px; background: var(--bg-default); }
+.tm-boot-card { background: #fff; border-radius: 16px; box-shadow: var(--shadow-card); padding: 36px 40px; max-width: 520px; text-align: center; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+.tm-boot-card h1 { font-size: 22px; margin: 8px 0 0; }
+.tm-boot-card p { margin: 0; line-height: 1.5; color: var(--fg-secondary); }
+.tm-boot-card .btn { margin-top: 10px; }
+
+/* Kanban "Add card" is a button here — reset native chrome */
+.kb-cards .tk-add { display: flex; align-items: center; gap: 6px; width: 100%; border: 0; background: transparent; border-radius: 6px; font: inherit; font-size: 12.5px; cursor: pointer; }
+.kb-cards .tk-add:hover { background: var(--grey-100); color: var(--fg-primary); }
+
+/* Dark-mode gaps in the prototype stylesheet */
+.app.dark .tbl .group-header td, .app.dark .tbl tr.group-header { background: #1f232b; color: #E8EAF0; }
+.app.dark .popover, .app.dark .tb-search .results { background: #1A1D24; border-color: #2A2E37; color: #E8EAF0; }
+.app.dark .tm-menu-item { color: #E8EAF0; }
+.app.dark .tm-menu-item:hover, .app.dark .tm-editable:hover { background: #232831; }
+.app.dark .kb-col { background: #1A1D24; }
+.app.dark .kb-card { background: #232831; border-color: #2A2E37; color: #E8EAF0; }
+.app.dark .saved-view, .app.dark .tool-chip { color: #B6BDC8; }
+.app.dark .tmpl-tbl th, .app.dark .tmpl-tbl .section-row td { background: #232831; color: #B6BDC8; border-color: #2A2E37; }
+.app.dark .tmpl-tbl td { border-color: #232831; }
+.app.dark .tm-seg { background: #14171c; border-color: #2A2E37; }
+.app.dark .tm-proj-line { background: #1A1D24; border-color: #2A2E37; }
+.app.dark .note-input, .app.dark .wiz-field input, .app.dark .wiz-field select, .app.dark .wiz-field textarea { background: #14171c; color: #E8EAF0; border-color: #2A2E37; }

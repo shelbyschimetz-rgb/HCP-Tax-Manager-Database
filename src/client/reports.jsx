@@ -1,0 +1,326 @@
+/* Reports (CSV export) + admin Settings. */
+import React from 'react';
+import { Icon, Avatar, Person, Pill } from './ui.jsx';
+import { useStore, api, mutate, toast, refreshAll } from './store.js';
+import { openRecord } from './nav.js';
+import { label, toCSV, downloadCSV, fmtTsShort, fmtMinutes, relTime, today } from './util.js';
+
+const REPORTS = [
+  { id: 'pipeline', label: 'Pipeline snapshot', icon: 'briefcase' },
+  { id: 'cycle', label: 'Stage cycle time', icon: 'timer' },
+  { id: 'advisor', label: 'Per-advisor summary', icon: 'users' },
+  { id: 'balance', label: 'Advisor load balance', icon: 'users' },
+  { id: 'time', label: 'Logged time', icon: 'clock' },
+  { id: 'risk', label: 'At-risk pros', icon: 'alert' },
+];
+
+function Bar({ value, max, width = 260 }) {
+  return <span className="rep-bar-track" style={{ display: 'inline-block', width }}><span className="rep-bar" style={{ display: 'block', width: (max ? (value / max) * 100 : 0) + '%' }} /></span>;
+}
+
+function ExportBtn({ onClick, disabled }) {
+  return <button className="btn sm" onClick={onClick} disabled={disabled}><Icon name="download" size={12} /> Export CSV</button>;
+}
+
+export function Reports() {
+  const teamBy = useStore((s) => s.teamBy);
+  const [report, setReport] = React.useState('pipeline');
+  const [data, setData] = React.useState(null);
+  const [err, setErr] = React.useState('');
+  const load = React.useCallback(async () => {
+    setErr('');
+    try { setData(await api('getReports')); } catch (e) { setErr(e.message); }
+  }, []);
+  React.useEffect(() => { load(); }, [load]);
+  const name = (e) => (teamBy[e] ? teamBy[e].name : e || '—');
+  const stamp = today();
+
+  return (
+    <div data-screen-label="Reports">
+      <div className="ph">
+        <div>
+          <div className="ph-title"><Icon name="chart" size={22} /> Reports</div>
+          <div className="ph-meta">Management views across the whole book, computed live. Every report exports to CSV.{data && ' Generated ' + relTime(data.generated_at) + '.'}</div>
+        </div>
+        <div className="ph-actions"><button className="btn" onClick={load}><Icon name="refresh" size={14} /> Recalculate</button></div>
+      </div>
+      <div className="rep-tabs">
+        {REPORTS.map((r) => (
+          <button key={r.id} className={'saved-view' + (report === r.id ? ' active' : '')} onClick={() => setReport(r.id)}><Icon name={r.icon} size={13} /> {r.label}</button>
+        ))}
+      </div>
+      {err && <div className="flash error"><Icon name="alert" size={14} /> {err}</div>}
+      {!data && !err && <div className="det-card"><div className="muted" style={{ padding: 24 }}>Crunching numbers…</div></div>}
+
+      {data && report === 'pipeline' && (() => {
+        const rows = data.pipeline;
+        const max = Math.max(1, ...rows.map((r) => r.count));
+        return (
+          <div className="det-card">
+            <div className="det-card-head">
+              <div className="title">Pipeline snapshot — open projects by stage</div>
+              <ExportBtn onClick={() => downloadCSV(`pipeline-snapshot-${stamp}.csv`, toCSV(rows, [
+                { key: 'stage', label: 'Stage', value: (r) => label('PIPELINE_STATUS', r.stage) }, { key: 'count', label: 'Open projects' }, { key: 'overdue', label: 'Past deadline' },
+              ]))} />
+            </div>
+            <table className="tmpl-tbl">
+              <thead><tr><th>Stage</th><th style={{ width: 320 }}>Volume</th><th style={{ width: 120 }}>Open</th><th style={{ width: 130 }}>Past deadline</th></tr></thead>
+              <tbody>
+                {rows.map((r) => (
+                  <tr key={r.stage}>
+                    <td><Pill kind="pipeline" value={r.stage} /></td>
+                    <td><Bar value={r.count} max={max} /></td>
+                    <td className="mono">{r.count}</td>
+                    <td>{r.overdue > 0 ? <span style={{ color: 'var(--error-main)', fontWeight: 600 }}>{r.overdue}</span> : <span className="muted">0</span>}</td>
+                  </tr>
+                ))}
+                <tr><td><strong>Total open</strong></td><td /><td className="mono"><strong>{rows.reduce((s, r) => s + r.count, 0)}</strong></td><td className="mono">{rows.reduce((s, r) => s + r.overdue, 0)}</td></tr>
+              </tbody>
+            </table>
+          </div>
+        );
+      })()}
+
+      {data && report === 'cycle' && (
+        <div className="det-card">
+          <div className="det-card-head">
+            <div className="title">Days spent in each stage — with per-advisor breakout</div>
+            <ExportBtn disabled={!data.cycle.rows.length} onClick={() => downloadCSV(`stage-cycle-time-${stamp}.csv`, toCSV(data.cycle.rows, [
+              { key: 'stage', label: 'Stage', value: (r) => label('PIPELINE_STATUS', r.stage) },
+              { key: 'avg_days', label: 'Avg days' }, { key: 'median_days', label: 'Median days' }, { key: 'count', label: 'Sample size' },
+              ...data.cycle.advisors.map((a) => ({ key: a, label: name(a) + ' (avg days)', value: (r) => r.by_advisor[a] })),
+            ]))} />
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table className="tmpl-tbl">
+              <thead><tr><th>Stage</th><th style={{ width: 100 }}>Avg days</th><th style={{ width: 100 }}>Median</th><th style={{ width: 90 }}>Sample</th>{data.cycle.advisors.map((a) => <th key={a} style={{ width: 140 }}>{name(a)}</th>)}</tr></thead>
+              <tbody>
+                {data.cycle.rows.map((r) => (
+                  <tr key={r.stage}>
+                    <td><Pill kind="pipeline" value={r.stage} /></td>
+                    <td className="mono" style={{ fontWeight: 600 }}>{r.avg_days}</td>
+                    <td className="mono muted">{r.median_days}</td>
+                    <td className="mono muted">{r.count}</td>
+                    {data.cycle.advisors.map((a) => <td key={a} className="mono">{r.by_advisor[a] ?? <span className="muted">—</span>}</td>)}
+                  </tr>
+                ))}
+                {!data.cycle.rows.length && <tr><td colSpan={4 + data.cycle.advisors.length} className="muted" style={{ textAlign: 'center', padding: 24 }}>No stage changes recorded yet — this fills in as projects move through the pipeline.</td></tr>}
+              </tbody>
+            </table>
+          </div>
+          <div style={{ padding: '10px 16px' }} className="muted small">Raw durations from stage-change timestamps (ProjectStageHistory). No SLA targets applied.</div>
+        </div>
+      )}
+
+      {data && report === 'advisor' && (
+        <div className="det-card">
+          <div className="det-card-head">
+            <div className="title">Per-advisor summary — YTD</div>
+            <ExportBtn onClick={() => downloadCSV(`advisor-summary-${stamp}.csv`, toCSV(data.advisor, [
+              { key: 'advisor_email', label: 'Advisor', value: (r) => name(r.advisor_email) }, { key: 'advisor_email', label: 'Email' },
+              { key: 'open_projects', label: 'Open projects' }, { key: 'completed_ytd', label: 'Completed YTD' },
+              { key: 'avg_cycle_days', label: 'Avg cycle days' }, { key: 'on_time_pct', label: 'On-time %' }, { key: 'actual_hrs', label: 'Hrs logged on their projects' },
+            ]))} />
+          </div>
+          <table className="tmpl-tbl">
+            <thead><tr><th>Advisor</th><th style={{ width: 110 }}>Open</th><th style={{ width: 130 }}>Completed YTD</th><th style={{ width: 130 }}>Avg cycle</th><th style={{ width: 110 }}>On-time</th><th style={{ width: 130 }}>Hrs logged</th></tr></thead>
+            <tbody>
+              {data.advisor.map((r) => (
+                <tr key={r.advisor_email}>
+                  <td><Person email={r.advisor_email} /></td>
+                  <td className="mono">{r.open_projects}</td>
+                  <td className="mono">{r.completed_ytd}</td>
+                  <td className="mono">{r.avg_cycle_days != null ? r.avg_cycle_days + ' days' : <span className="muted">—</span>}</td>
+                  <td>{r.on_time_pct != null ? <span className={r.on_time_pct >= 90 ? 'pill pp-COMPLETE' : 'pill pp-WFP'}>{r.on_time_pct}%</span> : <span className="muted">—</span>}</td>
+                  <td className="mono">{r.actual_hrs}h</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          <div style={{ padding: '10px 16px' }} className="muted small">On-time = e-filed by the deadline (+6 months when an extension was filed). Hours are all work-timer entries on the advisor's projects (TimeEntries).</div>
+        </div>
+      )}
+
+      {data && report === 'balance' && (() => {
+        const loads = data.balance.loads.slice().sort((a, b) => a.count - b.count);
+        const max = Math.max(1, ...loads.map((l) => l.count));
+        const total = loads.reduce((s, l) => s + l.count, 0);
+        return (
+          <div className="det-card">
+            <div className="det-card-head">
+              <div className="title">Active pros per advisor — next assignment highlighted</div>
+              <ExportBtn onClick={() => downloadCSV(`advisor-load-balance-${stamp}.csv`, toCSV(loads, [
+                { key: 'name', label: 'Advisor' }, { key: 'email', label: 'Email' }, { key: 'count', label: 'Active pros' },
+                { key: 'accepting', label: 'Accepting new', value: (r) => (r.accepting ? 'Yes' : 'No') }, { key: 'lastAssigned', label: 'Last assigned' },
+              ]))} />
+            </div>
+            <table className="tmpl-tbl">
+              <thead><tr><th>Advisor</th><th style={{ width: 340 }}>Load</th><th style={{ width: 110 }}>Active pros</th><th style={{ width: 130 }}>Status</th></tr></thead>
+              <tbody>
+                {loads.map((l) => (
+                  <tr key={l.email} style={l.email === data.balance.next ? { background: 'var(--primary-50)' } : null}>
+                    <td><span style={{ display: 'inline-flex', gap: 6, alignItems: 'center' }}><Avatar email={l.email} /> {l.name}{l.email === data.balance.next && <span className="lb-tag">next up</span>}</span></td>
+                    <td><Bar value={l.count} max={max} width={280} /></td>
+                    <td className="mono" style={{ fontWeight: 600 }}>{l.count}</td>
+                    <td>{l.accepting ? <span className="pill pp-COMPLETE">Accepting</span> : <span className="pill">Paused</span>}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div style={{ padding: '10px 16px' }} className="muted small">
+              {total} active pros across {loads.length} advisors{loads.length ? ` (avg ${(total / loads.length).toFixed(1)})` : ''}. New pros auto-assign to the least-loaded accepting advisor; ties go to whoever was assigned least recently. The OS can override in the intake wizard. Toggle "accepting_new" in the Identity tab to pause someone.
+            </div>
+          </div>
+        );
+      })()}
+
+      {data && report === 'time' && (
+        <div className="det-card">
+          <div className="det-card-head">
+            <div className="title">Logged time — all projects ({fmtMinutes(data.time.reduce((s, t) => s + t.duration_min, 0))})</div>
+            <ExportBtn disabled={!data.time.length} onClick={() => downloadCSV(`time-entries-${stamp}.csv`, toCSV(data.time, [
+              { key: 'project_id', label: 'Project' }, { key: 'business_name', label: 'Business' },
+              { key: 'filing_type', label: 'Return type', value: (r) => label('FILING_TYPE', r.filing_type) }, { key: 'tax_year', label: 'Tax year' },
+              { key: 'user_email', label: 'User' }, { key: 'advisor_email', label: 'Advisor' }, { key: 'started_at', label: 'Started' },
+              { key: 'stopped_at', label: 'Stopped' }, { key: 'duration_min', label: 'Minutes' }, { key: 'auto_stopped', label: 'Auto-stopped', value: (r) => (r.auto_stopped ? 'Yes' : '') },
+            ]))} />
+          </div>
+          {data.time_by_type.length > 0 && (
+            <div style={{ padding: '10px 16px', display: 'flex', gap: 16, flexWrap: 'wrap', borderBottom: '1px solid var(--grey-100)' }}>
+              {data.time_by_type.map((t) => <span key={t.filing_type} className="small"><strong>{label('FILING_TYPE', t.filing_type)}</strong> <span className="mono muted">{fmtMinutes(t.minutes)}</span></span>)}
+            </div>
+          )}
+          <table className="tmpl-tbl">
+            <thead><tr><th>Project</th><th>Who</th><th>Started</th><th>Stopped</th><th style={{ width: 100 }}>Duration</th></tr></thead>
+            <tbody>
+              {data.time.slice(0, 500).map((e) => (
+                <tr key={e.entry_id} style={{ cursor: 'pointer' }} onClick={() => openRecord('project', e.project_id)}>
+                  <td>{e.business_name || e.project_id} <span className="muted small">· {label('FILING_TYPE', e.filing_type)} TY{e.tax_year}</span></td>
+                  <td><Person email={e.user_email} /></td>
+                  <td className="mono small">{fmtTsShort(e.started_at)}</td>
+                  <td className="mono small">{fmtTsShort(e.stopped_at)}{e.auto_stopped && <span className="pill pp-WFP" style={{ marginLeft: 6 }}>auto</span>}</td>
+                  <td className="mono">{fmtMinutes(e.duration_min)}</td>
+                </tr>
+              ))}
+              {!data.time.length && <tr><td colSpan="5" className="muted" style={{ textAlign: 'center', padding: 24 }}>No time logged yet — the work timer on each project fills this in.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {data && report === 'risk' && (
+        <div className="det-card">
+          <div className="det-card-head">
+            <div className="title">At-risk pros ({data.risk.length})</div>
+            <ExportBtn disabled={!data.risk.length} onClick={() => downloadCSV(`at-risk-pros-${stamp}.csv`, toCSV(data.risk, [
+              { key: 'org_id', label: 'Org ID' }, { key: 'business_name', label: 'Business' }, { key: 'at_risk_reason', label: 'Reason' },
+              { key: 'assigned_advisor_email', label: 'Advisor', value: (r) => name(r.assigned_advisor_email) }, { key: 'last_advisor_touchpoint', label: 'Last touch' },
+            ]))} />
+          </div>
+          <table className="tmpl-tbl">
+            <thead><tr><th style={{ width: 90 }}>Org ID</th><th>Business</th><th>Reason</th><th style={{ width: 170 }}>Advisor</th><th style={{ width: 120 }}>Last touch</th></tr></thead>
+            <tbody>
+              {data.risk.map((p) => (
+                <tr key={p.org_id} style={{ cursor: 'pointer' }} onClick={() => openRecord('pro', p.org_id)}>
+                  <td className="cell-id">{p.org_id}</td>
+                  <td>{p.business_name}</td>
+                  <td style={{ color: 'var(--warning-dark)' }}><Icon name="alert" size={12} /> {p.at_risk_reason || '—'}</td>
+                  <td><Person email={p.assigned_advisor_email} /></td>
+                  <td className="mono small">{p.last_advisor_touchpoint || '—'}</td>
+                </tr>
+              ))}
+              {!data.risk.length && <tr><td colSpan="5" className="muted" style={{ textAlign: 'center', padding: 24 }}>No pros flagged at risk.</td></tr>}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* ---------------- Settings (EXEC / ADMIN) ---------------- */
+
+export function Settings() {
+  const [s, setS] = React.useState(null);
+  const [f, setF] = React.useState({});
+  const [err, setErr] = React.useState('');
+  const [busy, setBusy] = React.useState('');
+  const [syncResult, setSyncResult] = React.useState(null);
+  React.useEffect(() => {
+    api('getSettings').then((d) => { setS(d); setF({ sfdc_sheet_id: d.sfdc_sheet_id, sfdc_tab: d.sfdc_tab, drive_parent_id: d.drive_parent_id, email_domain: d.email_domain, timer_max_hours: d.timer_max_hours }); })
+      .catch((e) => setErr(e.message));
+  }, []);
+  const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
+  async function save() {
+    setBusy('save');
+    try {
+      const d = await mutate({ label: 'settings', what: 'settings', action: 'saveSettings', payload: { settings: f } });
+      setS(d); toast('success', 'Settings saved');
+    } catch (e) { /* toast */ }
+    setBusy('');
+  }
+  async function syncNow() {
+    setBusy('sync');
+    try {
+      const r = await mutate({ label: 'Salesforce sync', what: 'Salesforce sync', action: 'runSfdcSync', payload: {} });
+      setSyncResult(r);
+      refreshAll();
+    } catch (e) { /* toast */ }
+    setBusy('');
+  }
+  if (err) return <div className="flash error"><Icon name="alert" size={14} /> {err}</div>;
+  if (!s) return <div className="muted" style={{ padding: 24 }}>Loading settings…</div>;
+  const last = syncResult || s.sfdc_last_result;
+  return (
+    <div data-screen-label="Settings">
+      <div className="ph">
+        <div>
+          <div className="ph-title"><Icon name="settings" size={22} /> Settings</div>
+          <div className="ph-meta">Integrations and the database. Team members and roles live in the <strong>Identity</strong> tab of the database sheet.</div>
+        </div>
+        <div className="ph-actions">
+          <a className="btn" href={/^https:/.test(s.db_url) ? s.db_url : undefined} target="_blank" rel="noreferrer"><Icon name="table" size={14} /> Open database sheet</a>
+        </div>
+      </div>
+      <div className="tm-settings-grid">
+        <div className="det-card" style={{ padding: 20 }}>
+          <h3 className="tm-h3">Salesforce onboarding feed</h3>
+          <p className="muted small">The "New Tax Onboarding Cases" sheet. Every 4 hours, rows with Case Record Type = Tax Onboarding and a new Org ID create a pro + Inbox item.</p>
+          <div className="wiz-field"><label className="lbl">Source sheet URL or ID</label><input className="tm-input" value={f.sfdc_sheet_id || ''} onChange={set('sfdc_sheet_id')} placeholder="https://docs.google.com/spreadsheets/d/…" /></div>
+          <div className="wiz-field"><label className="lbl">Tab name (blank = first tab)</label><input className="tm-input" value={f.sfdc_tab || ''} onChange={set('sfdc_tab')} /></div>
+          <div className="wiz-field"><label className="lbl">Email domain for the Case Owner resolver</label><input className="tm-input" value={f.email_domain || ''} onChange={set('email_domain')} /><span className="hint">"Angel Julia Marcos" → angel.marcos@{f.email_domain || 'housecallpro.com'} — must be on the Identity roster, else the pro is flagged for manual OS assignment.</span></div>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            <button className="btn" disabled={!!busy || !s.sfdc_sheet_id} onClick={syncNow}><Icon name="refresh" size={13} /> {busy === 'sync' ? 'Syncing…' : 'Sync now'}</button>
+            <span className="muted small">{s.sfdc_last_sync ? 'Last sync ' + relTime(s.sfdc_last_sync) : 'Never synced'}</span>
+          </div>
+          {last && <div className="wb-note" style={{ marginTop: 10 }}>Last run: {last.scanned} rows · {last.created} new pros · {last.existing} already existed · {last.skipped_type} other record types · {last.flagged_os} need an OS.</div>}
+        </div>
+        <div className="det-card" style={{ padding: 20 }}>
+          <h3 className="tm-h3">Drive</h3>
+          <p className="muted small">Parent folder for per-pro folders ("Business (Org)-TAX"), e.g. HCP Tax Shared Drive / client data. The deploying account needs edit access.</p>
+          <div className="wiz-field"><label className="lbl">Parent folder URL or ID</label><input className="tm-input" value={f.drive_parent_id || ''} onChange={set('drive_parent_id')} placeholder="https://drive.google.com/drive/folders/…" />
+            {s.drive_parent_name && <span className="hint">Current: {s.drive_parent_name}</span>}</div>
+          <h3 className="tm-h3" style={{ marginTop: 18 }}>Work timer</h3>
+          <div className="wiz-field"><label className="lbl">Auto-stop after (hours)</label><input className="tm-input mono" type="number" min="1" max="24" style={{ width: 110 }} value={f.timer_max_hours || ''} onChange={set('timer_max_hours')} /><span className="hint">Forgotten timers stop at this length and are flagged "auto-stopped".</span></div>
+          <h3 className="tm-h3" style={{ marginTop: 18 }}>Background jobs</h3>
+          <div className="small">{['sfdcSyncTrigger', 'timerAutoStopTrigger'].map((t) => (
+            <div key={t} style={{ display: 'flex', gap: 6, alignItems: 'center', margin: '4px 0' }}>
+              {s.triggers.includes(t) ? <Icon name="check-circle" size={14} style={{ color: 'var(--success-main)' }} /> : <Icon name="alert" size={14} style={{ color: 'var(--warning-main)' }} />}
+              <span className="mono">{t}</span><span className="muted">{t === 'sfdcSyncTrigger' ? 'every 4h' : 'hourly'}</span>
+            </div>
+          ))}</div>
+        </div>
+      </div>
+      <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
+        <button className="btn primary" disabled={!!busy} onClick={save}>{busy === 'save' ? 'Saving…' : 'Save settings'}</button>
+      </div>
+      <div className="det-card" style={{ padding: 20, marginTop: 16 }}>
+        <h3 className="tm-h3">Team roster</h3>
+        <p className="muted small" style={{ marginBottom: 0 }}>
+          Add people in the <strong>Identity</strong> tab of the database sheet: Name · Email · Active (TRUE/FALSE) · Roles (comma-separated: ADVISOR, PREPARER, PEER_REVIEWER, OS, BK, BK_LEAD, BK_TEAM_LEAD, EXEC, ADMIN) · Accepting new (advisors) · Color (optional hex). Changes apply on the next page load.
+        </p>
+        <p className="muted small">App URL: <span className="mono">{s.url}</span></p>
+      </div>
+    </div>
+  );
+}
