@@ -6,6 +6,8 @@ Built from the design handoff in [`docs/design/`](docs/design/README.md). The UI
 
 ---
 
+> **No command line?** Follow [docs/DEPLOY-IN-BROWSER.md](docs/DEPLOY-IN-BROWSER.md) instead: paste 3 files into script.google.com.
+
 ## Deploy it (first time, ~15 minutes)
 
 You need a Google Workspace account on the `housecallpro.com` domain and Node.js 18+ (`node -v`). Run everything from this `tax-manager/` folder.

@@ -2,7 +2,7 @@
   "name": "tax-manager",
   "private": true,
   "version": "1.0.0",
-  "description": "Tax Manager — Google Apps Script web app for the HCP tax team",
+  "description": "Tax Manager \u2014 Google Apps Script web app for the HCP tax team",
   "type": "module",
   "scripts": {
     "build": "node build.mjs",
@@ -11,7 +11,8 @@
     "test": "node tests/run.mjs && node tests/client.mjs",
     "test:e2e": "node tests/e2e/flow.mjs && node tests/e2e/conflict.mjs",
     "push": "node build.mjs && clasp push --force",
-    "deploy": "node scripts/deploy.mjs"
+    "deploy": "node scripts/deploy.mjs",
+    "paste": "node scripts/paste-bundle.mjs"
   },
   "dependencies": {
     "react": "^18.3.1",
