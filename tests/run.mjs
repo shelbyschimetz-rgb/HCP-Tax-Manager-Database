@@ -499,6 +499,68 @@ test('reports compute from live data', () => {
   assert.ok(r.balance.next);
 });
 
+/* ---------------- regressions from code review ---------------- */
+
+test('writes keep working past the sheet\'s initial 1,000-row grid', () => {
+  const gas = fresh();
+  gas.call('createPro', { fields: { org_id: '9', business_name: 'Nine' } });
+  for (let i = 0; i < 1050; i++) gas.call('addNote', { entity_type: 'PRO', entity_id: '9', body: 'n' + i });
+  assert.ok(gas.spreadsheet().getSheetByName('Notes').data.length > 1000);
+  assert.equal(gas.call('getProDetail', { org_id: '9' }).notes.length, 1050);
+});
+
+test('wizard progress + Drive link are system writes: they never invalidate a user edit', () => {
+  const gas = fresh();
+  const folder = gas.addFolder('client data');
+  gas.call('saveSettings', { settings: { drive_parent_id: folder } });
+  const pro = gas.call('createPro', { fields: { org_id: '11', business_name: 'Eleven' } });
+  gas.call('saveIntakeProgress', { org_id: '11', state: { step: 'A2', completed: ['A0', 'A1'] } });
+  gas.call('provisionDrive', { org_id: '11' });
+  const r = gas.call('updatePro', { org_id: '11', patch: { lifecycle_status: 'ONBOARDED' }, row_version: pro.row_version });
+  assert.equal(r.pro.lifecycle_status, 'ONBOARDED');
+  assert.equal(gas.call('getIntake', { org_id: '11' }).pro.intake_state.step, 'A2');
+});
+
+test('SFDC sync: a bad row is reported and skipped, the rest still import', () => {
+  const gas = fresh();
+  sfdcSheet(gas, [
+    ['Broken Row Co', 'Cherrie Groves', 'N/A', '1', 1, '', '2026-01-01', 'Tax Onboarding', ''],
+    ['Good Row Co', 'Cherrie Groves', '222', '2', 1, '', '2026-01-01', 'Tax Onboarding', ''],
+  ]);
+  const s = gas.call('runSfdcSync', {});
+  assert.equal(s.created, 1);
+  assert.equal(s.errors.length, 1);
+  assert.match(s.errors[0], /N\/A/);
+  assert.ok(gas.call('getProDetail', { org_id: '222' }).pro);
+  assert.ok(gas.state.props.LAST_SFDC_SYNC, 'sync timestamp still recorded');
+});
+
+test('claim of an inbox item whose pro is gone leaves the item claimable', () => {
+  const gas = fresh();
+  sfdcSheet(gas, [['Gone Co', 'Cherrie Groves', '333', '3', 1, '', '2026-01-01', 'Tax Onboarding', '']]);
+  gas.call('runSfdcSync', {});
+  const pros = gas.spreadsheet().getSheetByName('Pros');
+  pros.data = pros.data.filter((r, i) => i === 0 || r[pros.data[0].indexOf('org_id')] !== '333');
+  gas.ctx.Db.clearCache();
+  assert.throws(() => gas.call('claimInbox', { id: '3' }), /missing/);
+  assert.equal(gas.ctx.Db.get('SfdcIntakeQueue', '3').state, 'NEW');
+});
+
+test('workbook upload with date cells returns serializable data', () => {
+  const gas = fresh();
+  gas.call('createPro', { fields: { org_id: '322284', business_name: 'Cedar' } });
+  const tabs = filledWorkbook();
+  tabs[0].values[8][2] = new Date('2025-01-01T07:00:00Z'); // Scope Start as a real Date
+  tabs[0].values[3][3] = new Date('2026-09-01T06:00:00Z'); // Onboarding Date
+  gas.state.nextConvertedId = gas.addSpreadsheet('converted', tabs.map((t) => ({ name: t.name, data: t.values })));
+  const res = gas.raw('uploadWorkbook', { org_id: '322284', filename: 'Tax Notes.xlsx', base64: Buffer.from('x').toString('base64') });
+  assert.equal(res.ok, true, res.error);
+  const f = Object.fromEntries(res.data.rows.filter((r) => r.kind === 'field').map((r) => [r.field, r.value]));
+  assert.equal(f.scope_start_date, '2025-01-01');
+  assert.ok(!JSON.stringify(res.data.tabs).includes('"$date'), 'no Date objects in payload');
+  assert.ok(res.data.tabs[0].values.flat().every((v) => !(v instanceof Date)));
+});
+
 /* ------------------------------------------------------------------ */
 
 let failed = 0;

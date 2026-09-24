@@ -116,6 +116,34 @@ test('mutate: optimistic change rolls back + toasts on failure, sticks on succes
   assert.equal(calls, 2);
 });
 
+test('two quick edits to one pro run in order, each with the latest row_version', async () => {
+  let version = 5;
+  const seen = [];
+  globalThis.fetch = async (url, init) => {
+    const { payload } = JSON.parse(init.body);
+    seen.push(payload.row_version);
+    await new Promise((r) => setTimeout(r, 20));
+    if (payload.row_version !== version) return { json: async () => ({ ok: false, error: 'conflict', code: 'CONFLICT' }) };
+    version++;
+    return { json: async () => ({ ok: true, data: { pro: { org_id: '1', ...payload.patch, row_version: version }, tasks: [] } }) };
+  };
+  store.setState({ pros: [{ org_id: '1', vertical: 'A', state: 'CO', row_version: 5 }], details: { pro: {}, project: {} }, projects: [], myTasks: [] });
+  const a = store.updatePro({ org_id: '1' }, { vertical: 'B' });
+  const b = store.updatePro({ org_id: '1' }, { state: 'CA' });
+  assert.equal(store.getState().pros[0].vertical, 'B', 'optimistic');
+  await Promise.all([a, b]);
+  assert.deepEqual(seen, [5, 6]);
+  assert.deepEqual([store.getState().pros[0].vertical, store.getState().pros[0].state, store.getState().pros[0].row_version], ['B', 'CA', 7]);
+});
+
+test('a failed edit rolls back only its own fields and never lowers row_version', async () => {
+  globalThis.fetch = async () => ({ json: async () => ({ ok: false, error: 'nope', code: 'VALIDATION' }) });
+  store.setState({ pros: [{ org_id: '1', vertical: 'B', state: 'CA', row_version: 7 }], toasts: [] });
+  await assert.rejects(store.updatePro({ org_id: '1' }, { vertical: 'X' }));
+  const p = store.getState().pros[0];
+  assert.deepEqual([p.vertical, p.state, p.row_version], ['B', 'CA', 7]);
+});
+
 let failed = 0;
 for (const t of tests) {
   try { await t.fn(); console.log('  ✓ ' + t.name); } catch (e) { failed++; console.log('  ✗ ' + t.name + '\n    ' + String(e.stack || e).split('\n').slice(0, 5).join('\n    ')); }

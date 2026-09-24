@@ -123,7 +123,7 @@ npm run dev:reseed     # reset demo data
 ## Tests
 
 ```bash
-npm test               # 22 server tests + 7 client tests
+npm test               # 27 server tests + 9 client tests
 npm i --no-save playwright && npm run dev &   # then:
 npm run test:e2e       # click-through of every screen + concurrent-edit rollback
 ```

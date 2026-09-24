@@ -43,7 +43,7 @@ class FakeRange {
 }
 
 class FakeSheet {
-  constructor(name, data) { this.name = name; this.data = data || []; this.writes = 0; }
+  constructor(name, data, maxRows) { this.name = name; this.data = data || []; this.writes = 0; this.maxRows = maxRows || Math.max(1000, this.data.length); }
   getName() { return this.name; }
   trimmed() {
     let last = this.data.length;
@@ -52,22 +52,27 @@ class FakeSheet {
   }
   getLastRow() { return this.trimmed(); }
   getLastColumn() { return Math.max(0, ...this.data.map(r => { let n = r.length; while (n > 0 && (r[n - 1] === '' || r[n - 1] == null)) n--; return n; })); }
-  getMaxRows() { return Math.max(1000, this.data.length); }
+  getMaxRows() { return this.maxRows; }
+  insertRowsAfter(after, n) { this.maxRows += n; return this; }
   getDataRange() {
     const nr = Math.max(1, this.getLastRow());
     const nc = Math.max(1, this.getLastColumn());
     return new FakeRange(this, 1, 1, nr, nc);
   }
-  getRange(r, c, nr = 1, nc = 1) { return new FakeRange(this, r, c, nr, nc); }
-  appendRow(row) { this.data.splice(this.getLastRow(), 0, row.slice()); return this; }
-  deleteRow(r) { this.data.splice(r - 1, 1); return this; }
+  getRange(r, c, nr = 1, nc = 1) {
+    // Like Sheets: ranges past the grid throw (appendRow is the only auto-grow).
+    if (r + nr - 1 > this.maxRows) throw new Error('The coordinates of the range are outside the dimensions of the sheet.');
+    return new FakeRange(this, r, c, nr, nc);
+  }
+  appendRow(row) { this.data.splice(this.getLastRow(), 0, row.slice()); this.maxRows = Math.max(this.maxRows, this.data.length); return this; }
+  deleteRow(r) { this.data.splice(r - 1, 1); this.maxRows--; return this; }
   setFrozenRows() { return this; }
 }
 
 class FakeSpreadsheet {
   constructor(id, name, tabs) {
     this.id = id; this.name = name;
-    this.sheets = (tabs || []).map(t => new FakeSheet(t.name, t.data));
+    this.sheets = (tabs || []).map(t => new FakeSheet(t.name, t.data, t.maxRows));
   }
   getId() { return this.id; }
   getUrl() { return 'https://docs.google.com/spreadsheets/d/' + this.id; }
@@ -77,7 +82,7 @@ class FakeSpreadsheet {
   getSheets() { return this.sheets.slice(); }
   insertSheet(n) { const s = new FakeSheet(n, []); this.sheets.push(s); return s; }
   deleteSheet(s) { this.sheets = this.sheets.filter(x => x !== s); }
-  toJSON() { return { id: this.id, name: this.name, tabs: this.sheets.map(s => ({ name: s.name, data: s.data })) }; }
+  toJSON() { return { id: this.id, name: this.name, tabs: this.sheets.map(s => ({ name: s.name, data: s.data, maxRows: s.maxRows })) }; }
 }
 
 class FakeProps {
@@ -181,6 +186,7 @@ export function createGas(opts = {}) {
       XFrameOptionsMode: { DEFAULT: 'DEFAULT', ALLOWALL: 'ALLOWALL' },
     },
     MimeType: { GOOGLE_SHEETS: 'application/vnd.google-apps.spreadsheet' },
+    Drive: { Files: { create: () => ({ id: state.nextConvertedId }) } },
     Date, JSON, Math, Object, Array, String, Number, Boolean, RegExp, Error, isNaN, parseFloat, parseInt, Intl,
   };
   vm.createContext(ctx);

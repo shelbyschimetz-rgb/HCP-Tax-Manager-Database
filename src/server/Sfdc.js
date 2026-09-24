@@ -69,34 +69,46 @@ var Sfdc = {
 
   /** Apply parsed cases. Returns a summary; safe to run repeatedly. */
   apply: function (cases) {
-    var summary = { scanned: cases.length, skipped_type: 0, existing: 0, created: 0, flagged_os: 0, created_ids: [] };
+    var summary = { scanned: cases.length, skipped_type: 0, existing: 0, created: 0, flagged_os: 0, created_ids: [], errors: [], deferred: 0 };
+    var t0 = Date.now();
+    var BUDGET_MS = 240000; // leave headroom under the 6-minute limit; the rest go next run
     cases.forEach(function (c) {
       if (c.record_type && !/tax onboarding/i.test(c.record_type)) { summary.skipped_type++; return; }
       if (Db.get('Pros', c.org_id)) { summary.existing++; return; }
-      var os = Identity.resolveCaseOwner(c.case_owner);
-      var pro = Pros.create({
-        org_id: c.org_id,
-        business_name: c.business_name || ('Org ' + c.org_id),
-        assigned_os_email: os,
-        needs_os_assignment: !os,
-        sfdc_case_number: c.case_number,
-        lifecycle_status: 'CLOSED_WON',
-      });
-      if (!os) summary.flagged_os++;
-      if (c.notes) Notes.add('PRO', pro.org_id, c.notes, 'salesforce');
-      var qid = c.case_number || ('ORG-' + c.org_id);
-      if (!Db.get('SfdcIntakeQueue', qid)) {
-        Db.insert('SfdcIntakeQueue', {
-          sfdc_opportunity_id: qid, org_id: c.org_id, business_name: pro.business_name, case_owner: c.case_owner,
-          resolved_os_email: os, service_days: c.service_days, sub_status_notes: c.notes, created_date: c.created_date,
-          date_closed: c.date_closed, case_record_type: c.record_type, state: 'NEW', imported_at: nowIso_(),
-        });
+      if (Date.now() - t0 > BUDGET_MS) { summary.deferred++; return; }
+      try {
+        Sfdc.createFromCase(c, summary);
+      } catch (e) {
+        summary.errors.push('Org ' + c.org_id + ' (' + (c.business_name || 'no name') + '): ' + (e.message || e));
       }
-      try { Folders.provisionFolder(pro.org_id); } catch (e) { /* Drive not configured yet — OS can provision in the wizard */ }
-      summary.created++;
-      summary.created_ids.push(c.org_id);
     });
     return summary;
+  },
+
+  /** Create one pro + inbox row from a Salesforce case (throws on bad data; apply() catches). */
+  createFromCase: function (c, summary) {
+    var os = Identity.resolveCaseOwner(c.case_owner);
+    var pro = Pros.create({
+      org_id: c.org_id,
+      business_name: c.business_name || ('Org ' + c.org_id),
+      assigned_os_email: os,
+      needs_os_assignment: !os,
+      sfdc_case_number: c.case_number,
+      lifecycle_status: 'CLOSED_WON',
+    });
+    if (!os) summary.flagged_os++;
+    if (c.notes) Notes.add('PRO', pro.org_id, c.notes, 'salesforce');
+    var qid = c.case_number || ('ORG-' + c.org_id);
+    if (!Db.get('SfdcIntakeQueue', qid)) {
+      Db.insert('SfdcIntakeQueue', {
+        sfdc_opportunity_id: qid, org_id: c.org_id, business_name: pro.business_name, case_owner: c.case_owner,
+        resolved_os_email: os, service_days: c.service_days, sub_status_notes: c.notes, created_date: c.created_date,
+        date_closed: c.date_closed, case_record_type: c.record_type, state: 'NEW', imported_at: nowIso_(),
+      });
+    }
+    try { Folders.provisionFolder(pro.org_id); } catch (e) { /* Drive not configured yet — OS can provision in the wizard */ }
+    summary.created++;
+    summary.created_ids.push(c.org_id);
   },
 
   /** Entry point for the 4-hour trigger and the "Sync now" button. */
@@ -130,9 +142,9 @@ var Sfdc = {
     if (!q) throw new AppError('That inbox item no longer exists.', 'NOT_FOUND');
     if (q.state === 'CLAIMED') throw new AppError('Already claimed by ' + q.claimed_by + '.', 'CONFLICT');
     var me = Identity.currentEmail();
-    Db.update('SfdcIntakeQueue', qid, { state: 'CLAIMED', claimed_by: me, claimed_at: nowIso_() });
     var pro = Db.get('Pros', q.org_id);
     if (!pro) throw new AppError('Pro ' + q.org_id + ' is missing — was it deleted?', 'NOT_FOUND');
+    Db.update('SfdcIntakeQueue', qid, { state: 'CLAIMED', claimed_by: me, claimed_at: nowIso_() });
     var patch = { onboarding_claimed_by: me, onboarding_claimed_at: nowIso_() };
     if (pro.lifecycle_status === 'CLOSED_WON') patch.lifecycle_status = 'ONBOARDING_SCHEDULED';
     if (!pro.assigned_os_email) { patch.assigned_os_email = me; patch.needs_os_assignment = false; }
@@ -174,7 +186,7 @@ var Folders = {
     var name = Folders.folderName(pro);
     var existing = parent.getFoldersByName(name);
     var folder = existing.hasNext() ? existing.next() : parent.createFolder(name);
-    var next = Db.update('Pros', orgId, { drive_folder_id: folder.getId(), drive_folder_url: folder.getUrl() });
+    var next = Db.update('Pros', orgId, { drive_folder_id: folder.getId(), drive_folder_url: folder.getUrl() }, null, { system: true });
     Audit.log('PRO', orgId, 'Provisioned Drive folder', 'drive_folder_id', '', folder.getId());
     return { pro: next, created: true, url: folder.getUrl() };
   },

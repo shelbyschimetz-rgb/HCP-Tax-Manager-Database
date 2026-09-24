@@ -78,7 +78,9 @@ export function IntakeWizard({ orgId }) {
   const idx = ALL_STEPS.indexOf(cur);
 
   function saveProgress(nextStep, nextCompleted) {
-    api('saveIntakeProgress', { org_id: orgId, state: { step: nextStep, completed: nextCompleted } }).then(() => setLastSave(Date.now())).catch(() => {});
+    return api('saveIntakeProgress', { org_id: orgId, state: { step: nextStep, completed: nextCompleted } })
+      .then(() => setLastSave(Date.now()))
+      .catch((e) => toast('error', 'Couldn\'t save wizard progress — ' + e.message));
   }
   function go(id) { setStep(id); saveProgress(id, completed); }
   function next() {
@@ -95,7 +97,7 @@ export function IntakeWizard({ orgId }) {
   async function finish() {
     const done = [...new Set([...completed, cur.id])];
     setCompleted(done);
-    saveProgress(cur.id, done);
+    await saveProgress(cur.id, done);
     if (['CLOSED_WON', 'ONBOARDING_SCHEDULED'].includes(pro.lifecycle_status)) {
       try { await updatePro(pro, { lifecycle_status: 'ONBOARDED' }, 'lifecycle'); } catch (e) { return; }
     }
@@ -532,6 +534,7 @@ function WorkbookStep({ pro, onApplied, onDone }) {
     try {
       const base64 = await readFileBase64(file);
       const res = await mutate({ label: 'workbook', what: file.name, action: 'uploadWorkbook', payload: { org_id: pro.org_id, filename: file.name, base64 } });
+      if (res.pro) mergePro(res.pro);
       setResult(res);
       setChecked(Object.fromEntries(res.rows.map((r, i) => [i, r.field !== 'org_id'])));
       setPhase('review');

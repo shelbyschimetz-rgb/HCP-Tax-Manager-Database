@@ -159,6 +159,8 @@ var Db = (function () {
       return rowArray(t, schema, obj);
     });
     var start = t.sh.getLastRow() + 1;
+    var over = start + arrays.length - 1 - t.sh.getMaxRows();
+    if (over > 0) t.sh.insertRowsAfter(t.sh.getMaxRows(), over + 100);
     var range = t.sh.getRange(start, 1, arrays.length, t.header.length);
     range.setNumberFormat('@'); // rows past the formatted block must stay plain text too
     range.setValues(arrays);
@@ -177,8 +179,10 @@ var Db = (function () {
   /**
    * Merge `patch` into the row with `key`. If expectedVersion is given and the
    * table versions rows, a mismatch throws a CONFLICT AppError.
+   * opts.system: bookkeeping write (wizard progress, Drive link) — doesn't bump
+   * row_version, so it never invalidates a user's in-flight edit.
    */
-  function update(table, key, patch, expectedVersion) {
+  function update(table, key, patch, expectedVersion, opts) {
     var schema = SCHEMA[table];
     var t = load(table);
     var i = t.index[String(key)];
@@ -194,7 +198,7 @@ var Db = (function () {
       if (p === schema.key || p === '__row' || p === 'row_version') continue;
       if (schema.cols.indexOf(p) >= 0) next[p] = patch[p];
     }
-    if (versioned) next.row_version = Number(cur.row_version || 1) + 1;
+    if (versioned) next.row_version = Number(cur.row_version || 1) + (opts && opts.system ? 0 : 1);
     stamp(table, next, false);
     // Preserve any non-schema columns the team added by hand.
     var raw = t.sh.getRange(cur.__row, 1, 1, t.header.length).getValues()[0];

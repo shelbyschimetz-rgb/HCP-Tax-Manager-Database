@@ -270,10 +270,14 @@ var Intake = {
     }
     try {
       var ss = SpreadsheetApp.openById(temp);
+      var tz = ss.getSpreadsheetTimeZone();
       var tabs = ss.getSheets().map(function (sh) {
         return {
           name: sh.getName(),
-          values: sh.getDataRange().getValues(),
+          // google.script.run can't return Date objects — normalize to strings.
+          values: sh.getDataRange().getValues().map(function (row) {
+            return row.map(function (v) { return v instanceof Date ? Utilities.formatDate(v, tz, 'yyyy-MM-dd') : v; });
+          }),
           merges: sh.getDataRange().getMergedRanges().map(function (m) {
             return [m.getRow() - 1, m.getColumn() - 1, m.getNumRows(), m.getNumColumns()];
           }),
@@ -293,6 +297,7 @@ var Intake = {
     result.filename = filename;
     result.savedUrl = up.savedUrl;
     result.tabs = up.tabs; // kept client-side so switching entity tab doesn't re-upload
+    result.pro = Db.get('Pros', orgId); // Drive folder may have just been linked
     if (!up.savedUrl) result.warnings.push('Original file was not saved to Drive (set up the Drive folder first).');
     return result;
   },
@@ -357,6 +362,6 @@ var Intake = {
       complexity: state.complexity != null ? state.complexity : cur.complexity,
       updated_at: nowIso_(),
     };
-    return Db.update('Pros', orgId, { intake_state: next });
+    return Db.update('Pros', orgId, { intake_state: next }, null, { system: true });
   },
 };

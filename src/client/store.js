@@ -248,12 +248,17 @@ export function removeTasks(ids) {
   });
 }
 
+/** A rollback or a stale payload must never move a record's version backwards. */
+function maxVersion(cur, incoming) {
+  return Math.max(Number((cur && cur.row_version) || 0), Number((incoming && incoming.row_version) || 0)) || undefined;
+}
+
 export function mergePro(pro) {
   if (!pro) return;
   setState((s) => {
     const i = s.pros.findIndex((p) => p.org_id === pro.org_id);
     const pros = s.pros.slice();
-    if (i >= 0) pros[i] = { ...pros[i], ...pro, projects: pros[i].projects };
+    if (i >= 0) pros[i] = { ...pros[i], ...pro, projects: pros[i].projects, row_version: maxVersion(pros[i], pro) };
     else pros.push({ projects: 0, ...pro });
     const details = { ...s.details, pro: { ...s.details.pro } };
     if (details.pro[pro.org_id]) details.pro[pro.org_id] = { ...details.pro[pro.org_id], pro: { ...details.pro[pro.org_id].pro, ...pro } };
@@ -268,7 +273,7 @@ export function mergeProject(project) {
     const pro = s.pros.find((p) => p.org_id === project.org_id);
     const i = s.projects.findIndex((p) => p.project_id === project.project_id);
     const projects = s.projects.slice();
-    const merged = { progress: 0, ...(i >= 0 ? projects[i] : {}), ...project, business_name: pro ? pro.business_name : project.org_id };
+    const merged = { progress: 0, ...(i >= 0 ? projects[i] : {}), ...project, business_name: pro ? pro.business_name : project.org_id, row_version: maxVersion(i >= 0 ? projects[i] : null, project) };
     if (merged.pipeline_status === 'COMPLETE') merged.progress = 100;
     if (i >= 0) projects[i] = merged; else projects.push(merged);
     const details = { pro: { ...s.details.pro }, project: { ...s.details.project } };
@@ -440,30 +445,61 @@ export function toggleChecklistItem(task, itemId, checked) {
 
 /* ---------------- record actions ---------------- */
 
+/*
+ * Edits to one record run one at a time, and each reads the latest row_version
+ * when it's sent — so two quick edits don't collide with each other. The
+ * optimistic change shows immediately; a failure rolls back only the fields
+ * that edit touched.
+ */
+const recordQueues = {};
+function enqueue(key, fn) {
+  const prev = recordQueues[key] || Promise.resolve();
+  const next = prev.catch(() => {}).then(fn);
+  recordQueues[key] = next.catch(() => {});
+  return next;
+}
+function pick(obj, keys) {
+  const out = {};
+  keys.forEach((k) => { out[k] = obj[k] == null ? null : obj[k]; });
+  return out;
+}
+
 export function updatePro(pro, patch, what) {
-  const before = state.pros.find((p) => p.org_id === pro.org_id) || pro;
-  return mutate({
-    label: 'field', what: what || 'pro', action: 'updatePro',
-    payload: { org_id: pro.org_id, patch, row_version: before.row_version },
-    savedKey: 'pro:' + pro.org_id,
-    optimistic: () => { mergePro({ ...before, ...patch }); return () => mergePro(before); },
-    apply: (d) => { mergePro(d.pro); mergeTasks(d.tasks); },
+  const id = pro.org_id;
+  const before = state.pros.find((p) => p.org_id === id) || pro;
+  const undoFields = { org_id: id, ...pick(before, Object.keys(patch)) };
+  mergePro({ org_id: id, ...patch });
+  return enqueue('pro:' + id, () => {
+    const cur = state.pros.find((p) => p.org_id === id) || before;
+    return mutate({
+      label: 'field', what: what || 'pro', action: 'updatePro',
+      payload: { org_id: id, patch, row_version: cur.row_version },
+      savedKey: 'pro:' + id,
+      optimistic: () => () => mergePro(undoFields),
+      apply: (d) => { mergePro(d.pro); mergeTasks(d.tasks); },
+    });
   });
 }
 
 export function updateProject(project, patch, what) {
-  const before = state.projects.find((p) => p.project_id === project.project_id) || project;
+  const id = project.project_id;
+  const before = state.projects.find((p) => p.project_id === id) || project;
+  const undoFields = { project_id: id, org_id: before.org_id, ...pick(before, Object.keys(patch)) };
   const stage = 'pipeline_status' in patch;
-  return mutate({
-    label: stage ? 'stage' : 'field', what: what || (before.business_name + ' · TY' + before.tax_year), action: 'updateProject',
-    payload: { project_id: project.project_id, patch, row_version: before.row_version },
-    savedKey: 'project:' + project.project_id,
-    optimistic: () => { mergeProject({ ...before, ...patch }); return () => mergeProject(before); },
-    apply: (d) => {
-      mergeProject(d.project);
-      mergeTasks(d.tasks);
-      if (stage && state.details.project[project.project_id]) loadProject(project.project_id, true);
-    },
+  mergeProject({ project_id: id, org_id: before.org_id, ...patch });
+  return enqueue('project:' + id, () => {
+    const cur = state.projects.find((p) => p.project_id === id) || before;
+    return mutate({
+      label: stage ? 'stage' : 'field', what: what || (before.business_name + ' · TY' + before.tax_year), action: 'updateProject',
+      payload: { project_id: id, patch, row_version: cur.row_version },
+      savedKey: 'project:' + id,
+      optimistic: () => () => mergeProject(undoFields),
+      apply: (d) => {
+        mergeProject(d.project);
+        mergeTasks(d.tasks);
+        if (stage && state.details.project[id]) loadProject(id, true);
+      },
+    });
   });
 }
 
