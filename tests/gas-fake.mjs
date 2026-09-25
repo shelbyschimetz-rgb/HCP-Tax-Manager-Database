@@ -185,6 +185,7 @@ export function createGas(opts = {}) {
       createHtmlOutput: html => { const o = { html, setTitle: () => o, addMetaTag: () => o, setXFrameOptionsMode: () => o, getContent: () => html }; return o; },
       XFrameOptionsMode: { DEFAULT: 'DEFAULT', ALLOWALL: 'ALLOWALL' },
     },
+    ContentService: { MimeType: { TEXT: 'text/plain' }, createTextOutput: (t) => { const o = { text: t, setMimeType: () => o, getContent: () => t }; return o; } },
     MimeType: { GOOGLE_SHEETS: 'application/vnd.google-apps.spreadsheet' },
     Drive: { Files: { create: () => ({ id: state.nextConvertedId }) } },
     Date, JSON, Math, Object, Array, String, Number, Boolean, RegExp, Error, isNaN, parseFloat, parseInt, Intl,

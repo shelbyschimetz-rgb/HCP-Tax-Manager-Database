@@ -53,6 +53,9 @@ You need three files: **Code.gs**, **index.html**, and **appsscript.json**. To r
 2. Go to **Deploy → Manage deployments** → **pencil icon** → **Version: New version** → **Deploy**.
 
 ## If something goes wrong
+- **Health check:** add `?diag=1` to the end of the app URL (…/exec?diag=1). It lists each part of the setup as OK or FAIL, with the fix.
+- **Blank page, or stuck on "Loading Tax Manager…":** `index.html` was probably cut off when pasted. Open the file in Notepad, press Ctrl+A then Ctrl+C, and paste it again. The file must end with `</html>`. Don't open `index.html` in a browser and copy from there; that copies the rendered page, not the file.
+- **Test changes without redeploying:** **Deploy → Test deployments** gives a `/dev` link that always runs the latest saved code.
 - **"Drive is not defined"** when uploading a workbook: click **Services +** → **Drive API** (v3) → **Add**.
 - **"Tax Manager isn't set up yet"** when opening the app: run `setup` again (step 5).
 - **"You don't have access yet"**: that person's email isn't in the Identity tab, or **active** isn't `TRUE`.

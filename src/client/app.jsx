@@ -164,17 +164,30 @@ function BootError({ boot }) {
 }
 
 export async function start() {
+  try {
+    await startInner();
+    window.__TM_STARTED__ = true;
+  } catch (e) {
+    if (window.__TM_FAIL__) window.__TM_FAIL__('Startup error: ' + (e && (e.stack || e.message) || e));
+    throw e;
+  }
+}
+
+async function startInner() {
   const boot = window.__TM_BOOT__;
   const root = createRoot(document.getElementById('root'));
   if (!boot || typeof boot !== 'object') {
-    root.render(<BootError boot={{ error: 'The page loaded without its data. Reload to try again.', code: 'ERROR' }} />);
+    root.render(<BootError boot={{ error: 'The page loaded without its data (the server didn\'t fill it in). Open the app URL with ?diag=1 at the end and send what it shows.', code: 'ERROR' }} />);
+    window.__TM_STARTED__ = true;
     return;
   }
   if (!boot.ok) {
     root.render(<BootError boot={boot} />);
+    window.__TM_STARTED__ = true;
     return;
   }
   applyBoot(boot.data);
-  await initRouter();
+  // Don't let a slow/missing google.script.url callback leave the page blank.
+  await Promise.race([initRouter(), new Promise((r) => setTimeout(r, 2500))]);
   root.render(<App />);
 }

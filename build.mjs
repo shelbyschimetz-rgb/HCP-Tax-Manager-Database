@@ -30,6 +30,8 @@ const result = await esbuild.build({
   write: false,
   logLevel: 'warning',
   legalComments: 'none',
+  lineLimit: 400, // short lines: survives copy-paste into the Apps Script editor
+  charset: 'ascii',
 });
 let js = result.outputFiles[0].text;
 // Never let a literal "</script" inside the bundle terminate the inline script tag.
@@ -38,6 +40,29 @@ js = js.replace(/<\/script/gi, '<\\/script');
 const css = ['hcp-tokens.css', 'styles.css', 'extras.css']
   .map((f) => `/* ${f} */\n` + fs.readFileSync(path.join(ROOT, 'src/client/styles', f), 'utf8'))
   .join('\n');
+
+// Never fail silently: any startup error is written onto the page (plain ES5, no build step).
+const STARTUP_GUARD = String.raw`(function () {
+  function show(msg) {
+    if (window.__TM_STARTED__) return;
+    var r = document.getElementById('root');
+    if (!r) return;
+    r.innerHTML = '<div style="font:14px Arial,sans-serif;max-width:720px;margin:48px auto;padding:24px;border:1px solid #F8BBD0;background:#FFF5F8;border-radius:12px;color:#880E4F">'
+      + '<b>Tax Manager could not start.</b><br><br>Send this message to whoever set up the app:'
+      + '<pre style="white-space:pre-wrap;font:12px monospace;color:#212121;background:#fff;padding:12px;border-radius:8px;margin-top:10px">'
+      + String(msg).replace(/&/g, '&amp;').replace(/</g, '&lt;') + '</pre></div>';
+  }
+  window.__TM_FAIL__ = show;
+  window.addEventListener('error', function (e) {
+    show((e.message || 'Script error') + (e.filename ? '\n' + e.filename + ':' + e.lineno : '') + (e.error && e.error.stack ? '\n' + e.error.stack : ''));
+  });
+  window.addEventListener('unhandledrejection', function (e) {
+    show('Unhandled: ' + ((e.reason && (e.reason.stack || e.reason.message)) || e.reason));
+  });
+  setTimeout(function () {
+    if (!window.__TM_STARTED__) show('The app did not finish loading within 20 seconds. If index.html was pasted by hand, the paste may be incomplete: the file must end with the closing html tag.');
+  }, 20000);
+})();`;
 
 const html = `<!DOCTYPE html>
 <html lang="en">
@@ -51,11 +76,17 @@ ${css}
 </style>
 </head>
 <body>
-<div id="root"></div>
-<script>window.__TM_BOOT__ = "__TM_BOOT__";</script>
+<div id="root"><div id="tm-loading" style="font:14px 'Open Sans',Arial,sans-serif;color:#616161;padding:48px;text-align:center">Loading Tax Manager…</div></div>
+<script>
+window.__TM_BOOT__ = "__TM_BOOT__";
+</script>
+<script>
+${STARTUP_GUARD}
+</script>
 <script>
 ${js}
 </script>
+<script>window.__TM_BUNDLE_LOADED__ = true;</script>
 </body>
 </html>
 `;
