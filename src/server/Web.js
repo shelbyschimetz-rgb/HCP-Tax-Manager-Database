@@ -21,10 +21,9 @@ function doGet(e) {
     return HtmlService.createHtmlOutput('<p style="font:14px Arial;padding:40px">Tax Manager setup problem: there is no HTML file named <b>index</b> in the Apps Script project. ('
       + String(err2.message || err2).replace(/</g, '&lt;') + ')</p>');
   }
-  // Inline the payload. Escape "<" so no string in the data can close the script tag.
-  var json = JSON.stringify(boot).replace(/</g, '\\u003c')
-    .replace(new RegExp('\\u2028', 'g'), '\\u2028').replace(new RegExp('\\u2029', 'g'), '\\u2029');
-  html = html.replace('"__TM_BOOT__"', function () { return json; });
+  // Inline the payload as base64 so nothing between here and the browser can alter it.
+  var b64 = Utilities.base64Encode(JSON.stringify(boot), Utilities.Charset.UTF_8);
+  html = html.replace('"__TM_BOOT__"', function () { return '"' + b64 + '"'; });
   return HtmlService.createHtmlOutput(html)
     .setTitle('Tax Manager')
     .addMetaTag('viewport', 'width=device-width, initial-scale=1')

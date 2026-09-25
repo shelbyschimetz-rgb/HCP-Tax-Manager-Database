@@ -177,7 +177,7 @@ async function startInner() {
   const boot = window.__TM_BOOT__;
   const root = createRoot(document.getElementById('root'));
   if (!boot || typeof boot !== 'object') {
-    root.render(<BootError boot={{ error: 'The page loaded without its data (the server didn\'t fill it in). Open the app URL with ?diag=1 at the end and send what it shows.', code: 'ERROR' }} />);
+    root.render(<BootError boot={{ error: (window.__TM_BOOT_ERR__ ? 'Startup data could not be read (' + window.__TM_BOOT_ERR__ + '). ' : 'The page loaded without its data. ') + 'Open the app URL with ?diag=1 at the end and send what it shows.', code: 'ERROR' }} />);
     window.__TM_STARTED__ = true;
     return;
   }

@@ -41,9 +41,9 @@ function page(user) {
   } catch (e) {
     boot = { ok: false, error: e.message, code: e.code || 'ERROR', email: user };
   }
-  const json = JSON.stringify(JSON.parse(JSON.stringify(boot))).replace(/</g, '\\u003c');
+  const b64 = Buffer.from(JSON.stringify(boot), 'utf8').toString('base64');
   return html
-    .replace('"__TM_BOOT__"', () => json)
+    .replace('"__TM_BOOT__"', () => '"' + b64 + '"')
     .replace('<div id="root"></div>', `<div id="root"></div><script>window.__DEV_USER__ = ${JSON.stringify(user)};</script>`);
 }
 

@@ -170,6 +170,8 @@ export function createGas(opts = {}) {
           .replace('HH', hh).replace('mm', parts.minute).replace('ss', parts.second);
       },
       base64Decode: s => Array.from(Buffer.from(s, 'base64')),
+      base64Encode: (s) => Buffer.from(typeof s === 'string' ? s : Buffer.from(s), 'utf8').toString('base64'),
+      Charset: { UTF_8: 'UTF-8' },
       newBlob: (bytes, mime, name) => ({ bytes, mime, name }),
     },
     ScriptApp: {
@@ -181,7 +183,7 @@ export function createGas(opts = {}) {
       },
     },
     HtmlService: {
-      createHtmlOutputFromFile: () => ({ getContent: () => '<script>window.__TM_BOOT__ = "__TM_BOOT__";</script>' }),
+      createHtmlOutputFromFile: () => ({ getContent: () => '<script>var b = "__TM_BOOT__";</script>' }),
       createHtmlOutput: html => { const o = { html, setTitle: () => o, addMetaTag: () => o, setXFrameOptionsMode: () => o, getContent: () => html }; return o; },
       XFrameOptionsMode: { DEFAULT: 'DEFAULT', ALLOWALL: 'ALLOWALL' },
     },

@@ -36,6 +36,24 @@ const result = await esbuild.build({
 let js = result.outputFiles[0].text;
 // Never let a literal "</script" inside the bundle terminate the inline script tag.
 js = js.replace(/<\/script/gi, '<\\/script');
+// Apps Script's HtmlService alters some inline script text on the way to the
+// browser (the page then dies with "SyntaxError: Invalid or unexpected token").
+// Ship the bundle as base64 — letters, digits, + / = only — in short lines,
+// and decode it in the browser. Dev builds stay plain for debugging.
+function base64Lines(text) {
+  const b64 = Buffer.from(text, 'utf8').toString('base64');
+  const lines = [];
+  for (let i = 0; i < b64.length; i += 200) lines.push('"' + b64.slice(i, i + 200) + '"');
+  return '[\n' + lines.join(',\n') + '\n].join("")';
+}
+const appScript = dev ? js : `(function () {
+  var b64 = ${base64Lines(js)};
+  var bin = atob(b64), bytes = new Uint8Array(bin.length);
+  for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  var s = document.createElement('script');
+  s.text = new TextDecoder('utf-8').decode(bytes);
+  document.body.appendChild(s);
+})();`;
 
 const css = ['hcp-tokens.css', 'styles.css', 'extras.css']
   .map((f) => `/* ${f} */\n` + fs.readFileSync(path.join(ROOT, 'src/client/styles', f), 'utf8'))
@@ -78,13 +96,23 @@ ${css}
 <body>
 <div id="root"><div id="tm-loading" style="font:14px 'Open Sans',Arial,sans-serif;color:#616161;padding:48px;text-align:center">Loading Tax Manager…</div></div>
 <script>
-window.__TM_BOOT__ = "__TM_BOOT__";
+(function () {
+  // The server replaces the placeholder with the startup data as base64 (UTF-8 JSON).
+  var b = "__TM_BOOT__";
+  window.__TM_BOOT__ = null;
+  if (b.charAt(0) === '_') return;
+  try {
+    var bin = atob(b), u = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+    window.__TM_BOOT__ = JSON.parse(new TextDecoder('utf-8').decode(u));
+  } catch (e) { window.__TM_BOOT_ERR__ = String(e && e.message || e); }
+})();
 </script>
 <script>
 ${STARTUP_GUARD}
 </script>
 <script>
-${js}
+${appScript}
 </script>
 <script>window.__TM_BUNDLE_LOADED__ = true;</script>
 </body>
