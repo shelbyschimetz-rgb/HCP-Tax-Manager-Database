@@ -74,7 +74,7 @@ test('non-roster user is refused with a readable message', () => {
   assert.equal(res.code, 'NO_ACCESS');
   assert.match(res.error, /not on the Tax Manager team roster/);
   const html = (gas.setUser('stranger@housecallpro.com'), gas.ctx.doGet({}).getContent());
-  const b64 = html.match(/var b = "([A-Za-z0-9+/=]+)"/)[1];
+  const b64 = html.match(/var b = "([A-Za-z0-9_=-]+)"/)[1];
   assert.equal(JSON.parse(Buffer.from(b64, 'base64').toString('utf8')).code, 'NO_ACCESS');
 });
 
@@ -83,7 +83,7 @@ test('doGet inlines the boot payload safely', () => {
   gas.call('createPro', { fields: { org_id: '1', business_name: 'Evil </script><script>alert(1)</script> LLC' } });
   const html = gas.ctx.doGet({}).getContent();
   assert.ok(!html.includes('</script><script>alert'), 'payload must not break out of the script tag');
-  const b64 = html.match(/var b = "([A-Za-z0-9+/=]+)"/)[1];
+  const b64 = html.match(/var b = "([A-Za-z0-9_=-]+)"/)[1];
   const boot = JSON.parse(Buffer.from(b64, 'base64').toString('utf8'));
   assert.equal(boot.ok, true);
   assert.equal(boot.data.pros[0].business_name, 'Evil </script><script>alert(1)</script> LLC');

@@ -36,27 +36,48 @@ const result = await esbuild.build({
 let js = result.outputFiles[0].text;
 // Never let a literal "</script" inside the bundle terminate the inline script tag.
 js = js.replace(/<\/script/gi, '<\\/script');
-// Apps Script's HtmlService alters some inline script text on the way to the
-// browser (the page then dies with "SyntaxError: Invalid or unexpected token").
-// Ship the bundle as base64 — letters, digits, + / = only — in short lines,
-// and decode it in the browser. Dev builds stay plain for debugging.
+// Apps Script's HtmlService alters inline script text on the way to the
+// browser (pages died with "SyntaxError: Invalid or unexpected token"). So the
+// production page carries only tiny scripts with no "//" in them; the app
+// bundle rides in a non-executing <script type="text/x-tm-bundle"> block as
+// web-safe base64 (A-Z a-z 0-9 - _ =). doGet strips that block before serving
+// and the loader fetches the same text through google.script.run.appBundle().
 function base64Lines(text) {
-  const b64 = Buffer.from(text, 'utf8').toString('base64');
+  const b64 = Buffer.from(text, 'utf8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_');
   const lines = [];
-  for (let i = 0; i < b64.length; i += 200) lines.push('"' + b64.slice(i, i + 200) + '"');
-  return '[\n' + lines.join(',\n') + '\n].join("")';
+  for (let i = 0; i < b64.length; i += 200) lines.push(b64.slice(i, i + 200));
+  return lines.join('\n');
 }
-const appScript = dev ? js : `(function () {
-  var b64 = ${base64Lines(js)};
-  var bin = atob(b64), bytes = new Uint8Array(bin.length);
-  for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  var s = document.createElement('script');
-  s.text = new TextDecoder('utf-8').decode(bytes);
-  document.body.appendChild(s);
+const BUNDLE_LOADER = String.raw`(function () {
+  function fail(m) { if (window.__TM_FAIL__) window.__TM_FAIL__(m); }
+  function run(text) {
+    try {
+      var b64 = String(text).replace(/\s+/g, '').replace(/-/g, '+').replace(/_/g, '/');
+      var bin = atob(b64), bytes = new Uint8Array(bin.length);
+      for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+      var code = new TextDecoder('utf-8').decode(bytes);
+      try { new Function(code); } catch (pe) {
+        if (pe && pe.name === 'SyntaxError') {
+          fail('App code failed to parse: ' + pe.message + ' (received ' + String(text).length + ' chars, decoded ' + code.length + '; ends with: ' + code.slice(-60) + ')');
+          return;
+        }
+      }
+      var s = document.createElement('script');
+      s.text = code;
+      document.body.appendChild(s);
+    } catch (e) { fail('Could not decode the app code: ' + (e && e.message || e) + ' (received ' + String(text).length + ' chars)'); }
+  }
+  var el = document.getElementById('tm-bundle');
+  if (el && el.textContent.length > 1000) { run(el.textContent); return; }
+  if (window.google && google.script && google.script.run) {
+    google.script.run
+      .withSuccessHandler(run)
+      .withFailureHandler(function (e) { fail('Could not load the app code from the server: ' + (e && e.message || e)); })
+      .appBundle();
+  } else { fail('The app code is missing from the page.'); }
 })();`;
-
 const css = ['hcp-tokens.css', 'styles.css', 'extras.css']
-  .map((f) => `/* ${f} */\n` + fs.readFileSync(path.join(ROOT, 'src/client/styles', f), 'utf8'))
+  .map((f) => `/* ${f} */\n` + fs.readFileSync(path.join(ROOT, 'src/client/styles', f), 'utf8').replace(/^@import url\([^)]*\);\s*$/m, ''))
   .join('\n');
 
 // Never fail silently: any startup error is written onto the page (plain ES5, no build step).
@@ -89,6 +110,7 @@ const html = `<!DOCTYPE html>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Tax Manager</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Open+Sans:wght@400;500;600;700&amp;display=swap">
 <style>
 ${css}
 </style>
@@ -97,12 +119,11 @@ ${css}
 <div id="root"><div id="tm-loading" style="font:14px 'Open Sans',Arial,sans-serif;color:#616161;padding:48px;text-align:center">Loading Tax Manager…</div></div>
 <script>
 (function () {
-  // The server replaces the placeholder with the startup data as base64 (UTF-8 JSON).
   var b = "__TM_BOOT__";
   window.__TM_BOOT__ = null;
   if (b.charAt(0) === '_') return;
   try {
-    var bin = atob(b), u = new Uint8Array(bin.length);
+    var bin = atob(b.replace(/-/g, '+').replace(/_/g, '/')), u = new Uint8Array(bin.length);
     for (var i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
     window.__TM_BOOT__ = JSON.parse(new TextDecoder('utf-8').decode(u));
   } catch (e) { window.__TM_BOOT_ERR__ = String(e && e.message || e); }
@@ -111,9 +132,7 @@ ${css}
 <script>
 ${STARTUP_GUARD}
 </script>
-<script>
-${appScript}
-</script>
+${dev ? '<script>\n' + js + '\n</script>' : '<script type="text/x-tm-bundle" id="tm-bundle">\n' + base64Lines(js) + '\n</script>\n<script>\n' + BUNDLE_LOADER + '\n</script>'}
 <script>window.__TM_BUNDLE_LOADED__ = true;</script>
 </body>
 </html>

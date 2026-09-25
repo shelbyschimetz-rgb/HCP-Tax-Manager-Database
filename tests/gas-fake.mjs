@@ -171,6 +171,7 @@ export function createGas(opts = {}) {
       },
       base64Decode: s => Array.from(Buffer.from(s, 'base64')),
       base64Encode: (s) => Buffer.from(typeof s === 'string' ? s : Buffer.from(s), 'utf8').toString('base64'),
+      base64EncodeWebSafe: (s) => Buffer.from(String(s), 'utf8').toString('base64').replace(/\+/g, '-').replace(/\//g, '_'),
       Charset: { UTF_8: 'UTF-8' },
       newBlob: (bytes, mime, name) => ({ bytes, mime, name }),
     },
@@ -183,7 +184,7 @@ export function createGas(opts = {}) {
       },
     },
     HtmlService: {
-      createHtmlOutputFromFile: () => ({ getContent: () => '<script>var b = "__TM_BOOT__";</script>' }),
+      createHtmlOutputFromFile: () => ({ getContent: () => (opts.indexHtml ? (typeof opts.indexHtml === 'function' ? opts.indexHtml() : opts.indexHtml) : '<script>var b = "__TM_BOOT__";</script>') }),
       createHtmlOutput: html => { const o = { html, setTitle: () => o, addMetaTag: () => o, setXFrameOptionsMode: () => o, getContent: () => html }; return o; },
       XFrameOptionsMode: { DEFAULT: 'DEFAULT', ALLOWALL: 'ALLOWALL' },
     },

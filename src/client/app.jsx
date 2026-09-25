@@ -2,6 +2,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import { useStore, applyBoot, getState, clearFlash } from './store.js';
+import { api } from './api.js';
 import { useRoute, navigate, patchRoute, initRouter } from './router.js';
 import { openRecord, getListOrder, closeDrawer } from './nav.js';
 import { Sidebar, TopNav, Topbar, applyAccent } from './chrome.jsx';
@@ -174,7 +175,13 @@ export async function start() {
 }
 
 async function startInner() {
-  const boot = window.__TM_BOOT__;
+  let boot = window.__TM_BOOT__;
+  if (!boot || typeof boot !== 'object') {
+    // Inline startup data missing or unreadable: fetch it over google.script.run instead.
+    try { boot = { ok: true, data: await api('bootstrap') }; } catch (e) {
+      boot = e && e.code ? { ok: false, error: e.message, code: e.code } : boot;
+    }
+  }
   const root = createRoot(document.getElementById('root'));
   if (!boot || typeof boot !== 'object') {
     root.render(<BootError boot={{ error: (window.__TM_BOOT_ERR__ ? 'Startup data could not be read (' + window.__TM_BOOT_ERR__ + '). ' : 'The page loaded without its data. ') + 'Open the app URL with ?diag=1 at the end and send what it shows.', code: 'ERROR' }} />);
