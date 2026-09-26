@@ -247,7 +247,7 @@ export function Settings() {
   const [busy, setBusy] = React.useState('');
   const [syncResult, setSyncResult] = React.useState(null);
   React.useEffect(() => {
-    api('getSettings').then((d) => { setS(d); setF({ sfdc_sheet_id: d.sfdc_sheet_id, sfdc_tab: d.sfdc_tab, drive_parent_id: d.drive_parent_id, email_domain: d.email_domain, timer_max_hours: d.timer_max_hours }); })
+    api('getSettings').then((d) => { setS(d); setF({ sfdc_sheet_id: d.sfdc_sheet_id, sfdc_tab: d.sfdc_tab, drive_parent_id: d.drive_parent_id, email_domain: d.email_domain, timer_max_hours: d.timer_max_hours, export_sheet_id: (d.export && d.export.sheet_id) || '' }); })
       .catch((e) => setErr(e.message));
   }, []);
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
@@ -256,6 +256,16 @@ export function Settings() {
     try {
       const d = await mutate({ label: 'settings', what: 'settings', action: 'saveSettings', payload: { settings: f } });
       setS(d); toast('success', 'Settings saved');
+    } catch (e) { /* toast */ }
+    setBusy('');
+  }
+  async function exportNow() {
+    setBusy('export');
+    try {
+      const r = await mutate({ label: 'reports export', what: 'reports export', action: 'runExport', payload: {} });
+      setS((cur) => ({ ...cur, export: { sheet_id: r.url.split('/d/')[1], url: r.url, last: r }, triggers: [...new Set([...cur.triggers, 'dailyExportTrigger'])] }));
+      setF((cur) => ({ ...cur, export_sheet_id: r.url }));
+      toast('success', 'Exported to the Tax Manager Reports sheet');
     } catch (e) { /* toast */ }
     setBusy('');
   }
@@ -303,13 +313,28 @@ export function Settings() {
           <h3 className="tm-h3" style={{ marginTop: 18 }}>Work timer</h3>
           <div className="wiz-field"><label className="lbl">Auto-stop after (hours)</label><input className="tm-input mono" type="number" min="1" max="24" style={{ width: 110 }} value={f.timer_max_hours || ''} onChange={set('timer_max_hours')} /><span className="hint">Forgotten timers stop at this length and are flagged "auto-stopped".</span></div>
           <h3 className="tm-h3" style={{ marginTop: 18 }}>Background jobs</h3>
-          <div className="small">{['sfdcSyncTrigger', 'timerAutoStopTrigger'].map((t) => (
+          <div className="small">{['sfdcSyncTrigger', 'timerAutoStopTrigger', 'dailyExportTrigger'].map((t) => (
             <div key={t} style={{ display: 'flex', gap: 6, alignItems: 'center', margin: '4px 0' }}>
               {s.triggers.includes(t) ? <Icon name="check-circle" size={14} style={{ color: 'var(--success-main)' }} /> : <Icon name="alert" size={14} style={{ color: 'var(--warning-main)' }} />}
-              <span className="mono">{t}</span><span className="muted">{t === 'sfdcSyncTrigger' ? 'every 4h' : 'hourly'}</span>
+              <span className="mono">{t}</span><span className="muted">{t === 'sfdcSyncTrigger' ? 'every 4h' : t === 'dailyExportTrigger' ? 'daily ~6am' : 'hourly'}</span>
             </div>
           ))}</div>
         </div>
+      </div>
+      <div className="det-card" style={{ padding: 20, marginTop: 16 }}>
+        <h3 className="tm-h3">Daily reports sheet</h3>
+        <p className="muted small">
+          Every morning (~6am) Tax Manager refreshes a Google Sheet with every pro, every tax return, and all six reports, plus a
+          <strong> Pipeline history</strong> tab that adds one row per stage per day for trend charts. Share it like any sheet; edits there are overwritten on the next refresh.
+        </p>
+        {s.export && s.export.url
+          ? <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap', marginBottom: 10 }}>
+            <a className="btn" href={/^https:/.test(s.export.url) ? s.export.url : undefined} target="_blank" rel="noreferrer"><Icon name="table" size={14} /> Open Tax Manager Reports</a>
+            <span className="muted small">{s.export.last ? 'Last refreshed ' + relTime(s.export.last.at) + ' · ' + Object.entries(s.export.last.counts || {}).filter(([k]) => k === 'Pros' || k === 'Tax Returns').map(([k, v]) => v + ' ' + k.toLowerCase()).join(' · ') : 'Not refreshed yet'}</span>
+          </div>
+          : <p className="small" style={{ marginTop: 0 }}>No reports sheet yet — <strong>Export now</strong> creates "Tax Manager Reports" in your Drive.</p>}
+        <div className="wiz-field"><label className="lbl">Use an existing sheet instead (optional)</label><input className="tm-input" value={f.export_sheet_id || ''} onChange={set('export_sheet_id')} placeholder="https://docs.google.com/spreadsheets/d/…" /><span className="hint">Tabs named Pros, Tax Returns, the report names, About and Pipeline history are replaced; other tabs are left alone. Save settings after changing this.</span></div>
+        <button className="btn" disabled={!!busy} onClick={exportNow}><Icon name="download" size={13} /> {busy === 'export' ? 'Exporting…' : 'Export now'}</button>
       </div>
       <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
         <button className="btn primary" disabled={!!busy} onClick={save}>{busy === 'save' ? 'Saving…' : 'Save settings'}</button>

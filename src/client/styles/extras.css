@@ -140,3 +140,11 @@ tr.inactive td { opacity: 0.55; }
 .app.dark .tm-seg { background: #14171c; border-color: #2A2E37; }
 .app.dark .tm-proj-line { background: #1A1D24; border-color: #2A2E37; }
 .app.dark .note-input, .app.dark .wiz-field input, .app.dark .wiz-field select, .app.dark .wiz-field textarea { background: #14171c; color: #E8EAF0; border-color: #2A2E37; }
+
+/* Validation + disabled states */
+.tm-input.invalid { border-color: var(--error-main); background: #FFF8FA; }
+.tm-field-error { color: var(--error-main); font-size: 12px; margin-top: 4px; display: block; align-self: flex-start; text-align: left; }
+.btn:disabled, .btn[disabled] { opacity: 0.5; cursor: not-allowed; }
+
+.tm-dark .tm-modal .lbl, .app.dark .wiz-field .lbl, .tm-dark .tm-modal .hint, .app.dark .wiz-field .hint { color: #B6BDC8; }
+.tm-dark .tm-modal-head, .tm-dark .tm-modal-foot { border-color: #2A2E37; }

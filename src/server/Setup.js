@@ -5,7 +5,8 @@
  *  2. Creates / upgrades every tab and header (safe to re-run).
  *  3. Adds you to the Identity roster as EXEC + ADMIN.
  *  4. Seeds the default task templates.
- *  5. Installs the time-driven triggers (SFDC sync every 4h, timer auto-stop hourly).
+ *  5. Installs the time-driven triggers (SFDC sync every 4h, timer auto-stop hourly,
+ *     daily export to the "Tax Manager Reports" sheet ~6am).
  */
 
 function setup() {
@@ -105,12 +106,13 @@ var Setup = {
   },
 
   installTriggers: function () {
-    var want = { sfdcSyncTrigger: 'every 4 hours', timerAutoStopTrigger: 'hourly' };
+    var want = { sfdcSyncTrigger: 'every 4 hours', timerAutoStopTrigger: 'hourly', dailyExportTrigger: 'daily ~6am' };
     var have = {};
     ScriptApp.getProjectTriggers().forEach(function (t) { have[t.getHandlerFunction()] = true; });
     var added = [];
     if (!have.sfdcSyncTrigger) { ScriptApp.newTrigger('sfdcSyncTrigger').timeBased().everyHours(4).create(); added.push('sfdcSyncTrigger'); }
     if (!have.timerAutoStopTrigger) { ScriptApp.newTrigger('timerAutoStopTrigger').timeBased().everyHours(1).create(); added.push('timerAutoStopTrigger'); }
+    if (!have.dailyExportTrigger) { ScriptApp.newTrigger('dailyExportTrigger').timeBased().everyDays(1).atHour(6).create(); added.push('dailyExportTrigger'); }
     return Object.keys(want).map(function (k) { return k + ' — ' + want[k] + (added.indexOf(k) >= 0 ? ' (installed)' : ' (already installed)'); });
   },
 };

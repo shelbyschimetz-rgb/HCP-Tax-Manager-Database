@@ -48,9 +48,20 @@ You need three files: **Code.gs**, **index.html**, and **appsscript.json**. To r
    - Paste the link to the shared Drive client-data folder.
 3. Optional: use **Import** on the Pros page, then the Projects page, to bring in Asana CSV exports.
 
+## Importing from Asana
+1. In Asana, export the **HCP Tax Pros** and **HCP Tax Returns** project lists to CSV.
+2. In Tax Manager, go to **Pros → Import**, choose **Pros**, pick the pros CSV, then **Preview → Import**.
+3. Then go to **Projects → Import**, choose **Projects**, pick the returns CSV, then **Preview → Import**. The returns import takes several minutes; keep the tab open.
+
+Rows are matched by Org ID and by each Asana project's own link, so re-importing a file updates records instead of duplicating them. Import once, at cutover: re-importing overwrites edits made in Tax Manager since.
+
+## Daily reports sheet
+In **Settings → Daily reports sheet**, click **Export now** once. That creates **Tax Manager Reports** in your Drive and turns on the daily refresh (~6am): Pros, Tax Returns, the six reports, and a growing **Pipeline history** tab.
+
 ## Updating later (keeps the same link)
 1. Paste the new **Code.gs** and **index.html** over the old ones and save.
 2. Go to **Deploy → Manage deployments** → **pencil icon** → **Version: New version** → **Deploy**.
+3. If the update adds a background job, open **Settings** in the app and click **Save settings** (or run `setup` again) to switch it on.
 
 ## If something goes wrong
 - **Health check:** add `?diag=1` to the end of the app URL (…/exec?diag=1). It lists each part of the setup as OK or FAIL, with the fix.

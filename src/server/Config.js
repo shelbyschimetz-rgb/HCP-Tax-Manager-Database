@@ -18,6 +18,8 @@ var PROP = {
   TIMER_MAX_HOURS: 'TIMER_MAX_HOURS',
   LAST_SFDC_SYNC: 'LAST_SFDC_SYNC',
   LAST_SFDC_RESULT: 'LAST_SFDC_RESULT',
+  EXPORT_SHEET_ID: 'EXPORT_SHEET_ID',
+  LAST_EXPORT: 'LAST_EXPORT',
 };
 
 var DEFAULTS = {
@@ -45,7 +47,7 @@ var SCHEMA = {
       'doc_collection_status', 'books_with_hcp', 'prior_books_status', 'books_access', 'inha_remarks',
       'at_risk', 'at_risk_reason', 'last_advisor_touchpoint', 'last_filing_year',
       'drive_folder_id', 'drive_folder_url', 'sfdc_case_number',
-      'onboarding_claimed_by', 'onboarding_claimed_at', 'intake_state',
+      'onboarding_claimed_by', 'onboarding_claimed_at', 'intake_state', 'source_ref',
     ], ARCHIVE_COLS, AUDIT_COLS),
     types: {
       year_started: 'n', last_filing_year: 'n', owner1_pct: 'n', owner2_pct: 'n', owner3_pct: 'n',
@@ -60,7 +62,7 @@ var SCHEMA = {
       'filing_deadline', 'project_start_date', 'efile_date', 'extension_needed', 'extension_filed',
       'tax_advisor_email', 'tax_preparer_email', 'peer_reviewer_email', 'os_email',
       'complexity', 'states_covered', 'tax_risk_level', 'books_status', 'billing_kind', 'add_ons',
-      'stage_changed_at',
+      'stage_changed_at', 'source_ref',
     ].concat(ARCHIVE_COLS, AUDIT_COLS),
     types: { tax_year: 'n', extension_needed: 'b', extension_filed: 'b', archived: 'b', row_version: 'n' },
   },
@@ -136,7 +138,7 @@ var ENUMS = {
   LIFECYCLE_STATUS: ['CLOSED_WON', 'ONBOARDING_SCHEDULED', 'ONBOARDED', 'ACTIVE_PROJECT', 'ADVISORY_ONLY', 'PASS_BACK'],
   PIPELINE_STATUS: ['IN_QUEUE', 'IN_QUEUE_ESCALATED', 'DOC_GATHERING', 'PREP', 'WFP', 'QA', 'CLIENT_REVIEW', 'FILING_DELIVERY', 'COMPLETE', 'BLOCKED'],
   PIPELINE_SEQUENCE: ['IN_QUEUE', 'DOC_GATHERING', 'PREP', 'WFP', 'QA', 'CLIENT_REVIEW', 'FILING_DELIVERY', 'COMPLETE'],
-  FILING_TYPE: ['F1040_SCHC', 'S_CORP', 'PARTNERSHIP', 'C_CORP', 'AMENDMENT', 'S_CORP_ELECTION', 'LLC_FORMATION', 'DISSOLUTION', 'UNKNOWN'],
+  FILING_TYPE: ['F1040_SCHC', 'F1040', 'S_CORP', 'PARTNERSHIP', 'C_CORP', 'AMENDMENT', 'S_CORP_ELECTION', 'LLC_FORMATION', 'DISSOLUTION', 'UNKNOWN'],
   ENTITY_TYPE: ['SOLE_PROP_SCHED_C', 'PARTNERSHIP', 'S_CORP', 'C_CORP'],
   DOC_COLLECTION_STATUS: ['WAITING', 'PARTIAL', 'RECEIVED'],
   TASK_STATUS: ['NOT_STARTED', 'IN_PROGRESS', 'BLOCKED', 'DONE', 'SKIPPED'],
@@ -156,7 +158,7 @@ var LABELS = {
     FILING_DELIVERY: 'Filing & delivery', COMPLETE: 'Complete', BLOCKED: 'Blocked',
   },
   FILING_TYPE: {
-    F1040_SCHC: '1040 + Sched C', S_CORP: 'S-Corp', PARTNERSHIP: 'Partnership', C_CORP: 'C-Corp',
+    F1040_SCHC: '1040 + Sched C', F1040: '1040 only', S_CORP: 'S-Corp', PARTNERSHIP: 'Partnership', C_CORP: 'C-Corp',
     AMENDMENT: 'Amendment', S_CORP_ELECTION: 'S-Corp election', LLC_FORMATION: 'LLC formation',
     DISSOLUTION: 'Dissolution', UNKNOWN: 'Unknown',
   },
@@ -177,11 +179,11 @@ var SECTION_STAGE = {
 
 /** Default filing deadline (month-day, following year) per filing type. */
 var DEADLINE_MMDD = {
-  F1040_SCHC: '04-15', S_CORP: '03-15', PARTNERSHIP: '03-15', C_CORP: '04-15',
+  F1040_SCHC: '04-15', F1040: '04-15', S_CORP: '03-15', PARTNERSHIP: '03-15', C_CORP: '04-15',
 };
 
 var FILING_CODE = {
-  F1040_SCHC: '1040', S_CORP: 'SCORP', PARTNERSHIP: 'PSHIP', C_CORP: 'CCORP', AMENDMENT: 'AMEND',
+  F1040_SCHC: '1040', F1040: '1040ONLY', S_CORP: 'SCORP', PARTNERSHIP: 'PSHIP', C_CORP: 'CCORP', AMENDMENT: 'AMEND',
   S_CORP_ELECTION: 'SCELECT', LLC_FORMATION: 'LLC', DISSOLUTION: 'DISSOLVE', UNKNOWN: 'OTHER',
 };
 

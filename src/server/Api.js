@@ -103,6 +103,7 @@ var API_ACTIONS = {
   /* ---- admin ---- */
   saveSettings: ADMIN_M(function (p) { return Boot.saveSettings(p.settings || {}); }),
   runSfdcSync: ADMIN_M(function () { return Sfdc.sync(); }),
+  runExport: ADMIN_R(function () { Setup.installTriggers(); return Exports.run(); }),
   importApply: ADMIN_M(function (p) { return Migration.apply(p.kind, p.csv, p.options || {}); }),
 };
 
@@ -304,6 +305,7 @@ var Boot = {
       sfdc_last_sync: getProp_(PROP.LAST_SFDC_SYNC),
       sfdc_last_result: last ? JSON.parse(last) : null,
       triggers: ScriptApp.getProjectTriggers().map(function (t) { return t.getHandlerFunction(); }),
+      export: Exports.status(),
       url: Boot.url(),
     };
   },
@@ -316,6 +318,11 @@ var Boot = {
     if ('sfdc_sheet_id' in s) setProp_(PROP.SFDC_SHEET_ID, idFrom(s.sfdc_sheet_id));
     if ('sfdc_tab' in s) setProp_(PROP.SFDC_TAB, String(s.sfdc_tab || '').trim());
     if ('drive_parent_id' in s) setProp_(PROP.DRIVE_PARENT, idFrom(s.drive_parent_id));
+    if ('export_sheet_id' in s) {
+      var eid = idFrom(s.export_sheet_id);
+      if (eid) SpreadsheetApp.openById(eid); // fails loudly if not accessible
+      setProp_(PROP.EXPORT_SHEET_ID, eid);
+    }
     if ('email_domain' in s) setProp_(PROP.EMAIL_DOMAIN, String(s.email_domain || '').replace(/^@/, '').trim());
     if ('timer_max_hours' in s) {
       var h = Number(s.timer_max_hours);

@@ -116,7 +116,7 @@ var Projects = {
       project_start_date: p.project_start_date || todayIso_(),
       tax_advisor_email: pro.assigned_advisor_email || '',
       os_email: pro.assigned_os_email || '',
-      complexity: 'MED',
+      complexity: opts.noDefaults ? '' : 'MED',
       states_covered: pro.state || '',
       extension_needed: false,
       extension_filed: false,

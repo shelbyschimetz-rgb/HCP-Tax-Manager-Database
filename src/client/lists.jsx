@@ -551,8 +551,12 @@ export function NewProModal({ onClose, onCreated }) {
   const [f, setF] = React.useState({ org_id: '', business_name: '', dba: '', vertical: '', state: '', entity_type: '', assigned_advisor_email: '', assigned_os_email: '', lifecycle_status: 'CLOSED_WON' });
   const [busy, setBusy] = React.useState(false);
   const set = (k) => (e) => setF({ ...f, [k]: e && e.target ? e.target.value : e });
-  const valid = /^\d+$/.test(f.org_id.trim()) && f.business_name.trim();
+  const [tried, setTried] = React.useState(false);
+  const orgErr = !f.org_id.trim() ? 'Org ID is required.' : !/^\d+$/.test(f.org_id.trim()) ? 'Org ID must be numbers only (the Salesforce Org ID, e.g. 749297).' : '';
+  const nameErr = f.business_name.trim() ? '' : 'Business name is required.';
+  const valid = !orgErr && !nameErr;
   async function submit() {
+    setTried(true);
     if (!valid) return;
     setBusy(true);
     try {
@@ -565,10 +569,12 @@ export function NewProModal({ onClose, onCreated }) {
   }
   return (
     <Modal title="New pro" onClose={onClose} width={620}
-      footer={<><button className="btn subtle" onClick={onClose}>Cancel</button><button className="btn primary" disabled={!valid || busy} onClick={submit}>{busy ? 'Creating…' : 'Create pro'}</button></>}>
+      footer={<><button className="btn subtle" onClick={onClose}>Cancel</button><button className="btn primary" disabled={busy} onClick={submit}>{busy ? 'Creating…' : 'Create pro'}</button></>}>
       <div className="wiz-row">
-        <div className="wiz-field"><label className="lbl">Org ID *</label><input className="tm-input mono" autoFocus value={f.org_id} onChange={set('org_id')} placeholder="e.g. 749297" /></div>
-        <div className="wiz-field"><label className="lbl">Business name *</label><input className="tm-input" value={f.business_name} onChange={set('business_name')} /></div>
+        <div className="wiz-field"><label className="lbl">Org ID *</label><input className={cx('tm-input mono', (tried || /\D/.test(f.org_id)) && orgErr && 'invalid')} autoFocus inputMode="numeric" value={f.org_id} onChange={set('org_id')} placeholder="e.g. 749297" />
+          {(tried || /\D/.test(f.org_id)) && orgErr && <span className="tm-field-error">{orgErr}</span>}</div>
+        <div className="wiz-field"><label className="lbl">Business name *</label><input className={cx('tm-input', tried && nameErr && 'invalid')} value={f.business_name} onChange={set('business_name')} />
+          {tried && nameErr && <span className="tm-field-error">{nameErr}</span>}</div>
       </div>
       <div className="wiz-row">
         <div className="wiz-field"><label className="lbl">DBA</label><input className="tm-input" value={f.dba} onChange={set('dba')} /></div>
@@ -608,7 +614,10 @@ export function NewProjectModal({ orgId, stage, onClose, onCreated }) {
   const matches = !orgId && q && !f.org_id ? pros.filter((p) => !p.archived && (p.business_name.toLowerCase().includes(q.toLowerCase()) || String(p.org_id).includes(q))).slice(0, 6) : [];
   const selected = pros.find((p) => p.org_id === f.org_id);
   const valid = selected && f.filing_type && Number(f.tax_year) > 2000;
+  const [tried, setTried] = React.useState(false);
+  const projErr = !selected ? 'Pick the pro this return is for.' : !(Number(f.tax_year) > 2000) ? 'Enter a 4-digit tax year.' : '';
   async function submit() {
+    setTried(true);
     if (!valid) return;
     setBusy(true);
     try {
@@ -621,7 +630,7 @@ export function NewProjectModal({ orgId, stage, onClose, onCreated }) {
   }
   return (
     <Modal title="New project" onClose={onClose} width={620}
-      footer={<><button className="btn subtle" onClick={onClose}>Cancel</button><button className="btn primary" disabled={!valid || busy} onClick={submit}>{busy ? 'Creating…' : 'Create project'}</button></>}>
+      footer={<><button className="btn subtle" onClick={onClose}>Cancel</button>{tried && projErr && <span className="tm-field-error" style={{ marginRight: 'auto' }}>{projErr}</span>}<button className="btn primary" disabled={busy} onClick={submit}>{busy ? 'Creating…' : 'Create project'}</button></>}>
       <div className="wiz-field" style={{ position: 'relative' }}>
         <label className="lbl">Pro *</label>
         {orgId || selected ? (
@@ -683,6 +692,7 @@ export function ImportModal({ defaultKind, onClose }) {
   const [result, setResult] = React.useState(null);
   const [error, setError] = React.useState('');
   const [materialize, setMaterialize] = React.useState(true);
+  const [progress, setProgress] = React.useState(null);
 
   async function onFile(e) {
     const file = e.target.files[0];
@@ -699,11 +709,17 @@ export function ImportModal({ defaultKind, onClose }) {
   async function doApply() {
     setBusy(true); setError('');
     try {
-      let total = { created: 0, updated: 0, tasks: 0, errors: [] };
+      let total = { created: 0, updated: 0, tasks: 0, items: 0, pros_created: 0, errors: [] };
       let offset = 0;
+      setProgress({ processed: 0, total: preview.creates + preview.updates });
       for (;;) {
+        // Each call works for up to ~4 minutes (Apps Script's limit is 6), then we continue where it stopped.
         const r = await api('importApply', { kind, csv, options: { materialize, offset } });
-        total = { created: total.created + r.created, updated: total.updated + r.updated, tasks: total.tasks + (r.tasks || 0), errors: r.errors };
+        total = {
+          created: total.created + r.created, updated: total.updated + r.updated, tasks: total.tasks + (r.tasks || 0),
+          items: total.items + (r.items || 0), pros_created: total.pros_created + (r.pros_created || 0), errors: [...total.errors, ...r.errors],
+        };
+        setProgress({ processed: r.processed, total: r.total });
         if (r.next_offset == null) break;
         offset = r.next_offset;
       }
@@ -728,7 +744,7 @@ export function ImportModal({ defaultKind, onClose }) {
           <button className="btn subtle" onClick={onClose}>Cancel</button>
           {!preview
             ? <button className="btn primary" disabled={!csv || busy} onClick={doPreview}>{busy ? 'Reading…' : 'Preview'}</button>
-            : <button className="btn primary" disabled={busy || (preview.creates + preview.updates === 0)} onClick={doApply}>{busy ? 'Importing…' : `Import ${preview.creates + preview.updates} rows`}</button>}
+            : <button className="btn primary" disabled={busy || (preview.creates + preview.updates === 0)} onClick={doApply}>{busy ? (progress ? `Importing ${progress.processed} of ${progress.total}…` : 'Importing…') : `Import ${preview.creates + preview.updates} rows`}</button>}
         </>}>
       <div className="tm-seg" style={{ marginBottom: 12 }}>
         <button className={cx(kind === 'pros' && 'on')} onClick={() => { setKind('pros'); setPreview(null); }}>Pros</button>
@@ -750,6 +766,12 @@ export function ImportModal({ defaultKind, onClose }) {
           Create template tasks on new projects (sections before the current stage are marked done)
         </label>
       )}
+      {busy && progress && (
+        <div style={{ marginTop: 12 }}>
+          <ProgressBar pct={progress.total ? Math.round((progress.processed / progress.total) * 100) : 0} />
+          <div className="muted small" style={{ marginTop: 4 }}>Importing {progress.processed} of {progress.total}. Large files take several minutes; keep this tab open.</div>
+        </div>
+      )}
       {error && <div className="flash error" style={{ marginTop: 12 }}><Icon name="alert" size={14} /> {error}</div>}
       {preview && !result && (
         <div style={{ marginTop: 14 }}>
@@ -767,7 +789,7 @@ export function ImportModal({ defaultKind, onClose }) {
       )}
       {result && (
         <div className="flash success" style={{ display: 'block' }}>
-          <strong>Import complete.</strong> {result.created} created · {result.updated} updated{result.tasks ? ' · ' + result.tasks + ' tasks materialized' : ''}.
+          <strong>Import complete.</strong> {result.created} created · {result.updated} updated{result.pros_created ? ' · ' + result.pros_created + ' missing pros created' : ''}{result.tasks ? ' · ' + result.tasks + ' tasks' : ''}{result.items ? ' · ' + result.items + ' outstanding items' : ''}.
           {result.errors.length > 0 && <div style={{ marginTop: 6 }}>{result.errors.length} rows skipped: {result.errors.slice(0, 5).join('; ')}</div>}
         </div>
       )}

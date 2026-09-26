@@ -60,11 +60,11 @@ test('setup creates every tab, seeds templates, installs triggers, adds admin', 
   const tpl = gas.call('getTemplates', { scope: 'PROJECT' });
   assert.equal(tpl.templates.length, 25);
   assert.equal(tpl.versions[0].version, 1);
-  assert.deepEqual(gas.state.triggers.sort(), ['sfdcSyncTrigger', 'timerAutoStopTrigger']);
+  assert.deepEqual(gas.state.triggers.sort(), ['dailyExportTrigger', 'sfdcSyncTrigger', 'timerAutoStopTrigger']);
   // re-running is idempotent
   gas.ctx.setup();
   assert.equal(gas.call('getTemplates', { scope: 'PROJECT' }).templates.length, 25);
-  assert.equal(gas.state.triggers.length, 2);
+  assert.equal(gas.state.triggers.length, 3);
 });
 
 test('non-roster user is refused with a readable message', () => {
@@ -563,6 +563,30 @@ test('workbook upload with date cells returns serializable data', () => {
   assert.equal(f.scope_start_date, '2025-01-01');
   assert.ok(!JSON.stringify(res.data.tabs).includes('"$date'), 'no Date objects in payload');
   assert.ok(res.data.tabs[0].values.flat().every((v) => !(v instanceof Date)));
+});
+
+test('daily export writes friendly Pros / Tax Returns / report tabs and appends pipeline history once per day', () => {
+  const gas = fresh();
+  gas.call('createPro', { fields: { org_id: '21', business_name: 'Export Co', assigned_advisor_email: ADV_A, entity_type: 'S_CORP' } });
+  const p = gas.call('createProject', { fields: { org_id: '21', filing_type: 'S_CORP', tax_year: 2025, filing_deadline: '2020-03-15' } }).project;
+  const r1 = gas.call('runExport', {});
+  const ss = gas.spreadsheet(gas.state.props.EXPORT_SHEET_ID);
+  const tab = (n) => ss.getSheetByName(n).data;
+  const pros = tab('Pros');
+  assert.equal(pros[1][pros[0].indexOf('Business')], 'Export Co');
+  assert.equal(pros[1][pros[0].indexOf('Entity type')], 'S-Corp');
+  assert.equal(pros[1][pros[0].indexOf('Tax advisor')], 'Ashley Advisor');
+  const ret = tab('Tax Returns');
+  assert.equal(ret[1][ret[0].indexOf('Project ID')], p.project_id);
+  assert.equal(ret[1][ret[0].indexOf('Stage')], 'In queue');
+  assert.equal(ret[1][ret[0].indexOf('Past deadline')], 'Yes');
+  for (const n of ['About', 'Pipeline snapshot', 'Stage cycle time', 'Per-advisor summary', 'Advisor load balance', 'Logged time', 'At-risk pros', 'Pipeline history']) assert.ok(ss.getSheetByName(n), n);
+  const h1 = tab('Pipeline history').length;
+  gas.call('runExport', {});
+  assert.equal(tab('Pipeline history').length, h1, 're-running the same day replaces, not duplicates');
+  assert.equal(r1.counts.Pros, 1);
+  assert.equal(gas.call('getSettings', {}).export.last.counts['Tax Returns'], 1);
+  assert.equal(gas.raw('runExport', {}, OS).code, 'FORBIDDEN');
 });
 
 /* ------------------------------------------------------------------ */

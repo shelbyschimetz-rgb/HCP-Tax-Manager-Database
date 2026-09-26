@@ -40,6 +40,7 @@ class FakeRange {
   setNumberFormat() { return this; }
   setFontWeight() { return this; }
   setBackground() { return this; }
+  setValue(v) { return this.setValues([[v]]); }
 }
 
 class FakeSheet {
@@ -67,6 +68,9 @@ class FakeSheet {
   appendRow(row) { this.data.splice(this.getLastRow(), 0, row.slice()); this.maxRows = Math.max(this.maxRows, this.data.length); return this; }
   deleteRow(r) { this.data.splice(r - 1, 1); this.maxRows--; return this; }
   setFrozenRows() { return this; }
+  clearContents() { this.data = []; return this; }
+  getMaxColumns() { return this.maxCols || 26; }
+  insertColumnsAfter(after, n) { this.maxCols = this.getMaxColumns() + n; return this; }
 }
 
 class FakeSpreadsheet {
@@ -179,7 +183,7 @@ export function createGas(opts = {}) {
       getService: () => ({ getUrl: () => 'https://script.google.com/a/macros/housecallpro.com/s/DEV/exec' }),
       getProjectTriggers: () => state.triggers.map(h => ({ getHandlerFunction: () => h })),
       newTrigger(h) {
-        const b = { timeBased: () => b, everyHours: () => b, everyMinutes: () => b, create: () => { state.triggers.push(h); return b; } };
+        const b = { timeBased: () => b, everyHours: () => b, everyMinutes: () => b, everyDays: () => b, atHour: () => b, create: () => { state.triggers.push(h); return b; } };
         return b;
       },
     },
