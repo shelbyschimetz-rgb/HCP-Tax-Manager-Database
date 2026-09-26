@@ -133,3 +133,5 @@ npm run test:e2e       # click-through of every screen + concurrent-edit rollbac
 The server tests run the actual `src/server/*.js` files under Node against in-memory fakes of SpreadsheetApp, PropertiesService, LockService, etc. They cover setup, access control, the SFDC sync (dedup, record type filter, resolver, OS flag), load balancing, inbox claim, template materialization (subtasks, blockers, checklists, anchors), the done cascade, optimistic concurrency, stage history, the timer (conflicts, force switch, 8h auto-stop), notes, outstanding items, workbook extraction (including rows inserted by reps), Asana import, and reports.
 
 Manual acceptance script: [`docs/UAT.md`](docs/UAT.md).
+
+Frontline SOP for OS, advisors, preparers, peer reviewers and managers: [`docs/frontline-sop.html`](docs/frontline-sop.html). Open it in a browser.
