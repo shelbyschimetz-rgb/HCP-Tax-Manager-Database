@@ -13,6 +13,7 @@ import { navigate, patchRoute, getRoute, routeUrl } from './router.js';
 import { openRecord } from './nav.js';
 import { TaskList } from './tasks.jsx';
 import { NewProjectModal } from './lists.jsx';
+import { ReviewPanel, ReviewPill, SubmitReviewModal } from './review.jsx';
 import {
   label, dueClass, fmtDue, fmtTs, fmtTsShort, relTime, fmtMinutes, fmtElapsed, initialsOf, toCSV, downloadCSV, sectionLabel, cx, safeUrl,
 } from './util.js';
@@ -494,6 +495,7 @@ export function ProjectDetail({ projectId, inDrawer }) {
   const loading = useStore((s) => s.loading['project:' + projectId]);
   const pro = useStore((s) => (project ? s.pros.find((p) => p.org_id === project.org_id) : null));
   const [tab, setTab] = useTab(inDrawer, 'tasks');
+  const [submitting, setSubmitting] = React.useState(false);
   React.useEffect(() => { loadProject(projectId); }, [projectId]);
 
   if (!project && !detail) {
@@ -510,11 +512,13 @@ export function ProjectDetail({ projectId, inDrawer }) {
   }
 
   const openItems = detail ? detail.outstanding.filter((i) => !i.resolved).length : null;
+  const activeReview = detail ? (detail.reviews || []).find((r) => ['SUBMITTED', 'IN_REVIEW', 'REWORK'].includes(r.status)) : null;
   const tabs = [
     { id: 'tasks', label: 'Tasks', icon: 'check-circle', badge: tasks.length },
     { id: 'overview', label: 'Overview', icon: 'file-text' },
     { id: 'stages', label: 'Time & stages', icon: 'timer' },
     { id: 'outstanding', label: 'Outstanding items', icon: 'flag', badge: openItems || null },
+    { id: 'review', label: 'Peer review', icon: 'eye' },
     { id: 'notes', label: 'Notes', icon: 'file-text', badge: detail ? detail.notes.length : null },
     { id: 'audit', label: 'Audit', icon: 'history' },
   ];
@@ -540,6 +544,7 @@ export function ProjectDetail({ projectId, inDrawer }) {
                     <Icon name="clock" size={12} /> Deadline {fmtDue(p.filing_deadline, true)}
                   </span></>}
                 {p.blocker_reason && <><span>·</span><span style={{ color: 'var(--error-main)' }}><Icon name="alert" size={12} /> {p.blocker_reason}</span></>}
+                {activeReview && <><span>·</span><a style={{ cursor: 'pointer' }} onClick={() => setTab('review')} title="Open the peer review"><ReviewPill status={activeReview.status} /></a></>}
                 {p.archived && <><span>·</span><span className="pill archived">Archived</span></>}
               </div>
             </div>
@@ -552,6 +557,7 @@ export function ProjectDetail({ projectId, inDrawer }) {
           <MoreMenu btnClass="btn" items={[
             { label: 'Open pro', icon: 'users', onClick: () => openRecord('pro', p.org_id) },
             { label: 'Copy link', icon: 'copy', onClick: () => copyLink({ view: 'project', id: projectId }) },
+            detail && !activeReview && !p.archived && p.pipeline_status !== 'COMPLETE' && { label: 'Submit for peer review…', icon: 'eye', onClick: () => setSubmitting(true) },
             p.pipeline_status !== 'BLOCKED' && { label: 'Mark blocked…', icon: 'alert', onClick: () => changeStage(p, 'BLOCKED') },
             p.archived ? { label: 'Restore project', icon: 'refresh', onClick: () => restoreRecord('project', p).catch(() => {}) } : { label: 'Archive project', icon: 'archive', danger: true, onClick: archive },
           ]} />
@@ -576,6 +582,8 @@ export function ProjectDetail({ projectId, inDrawer }) {
       )}
       {tab === 'stages' && <StageAndTimeTab project={p} detail={detail} />}
       {tab === 'outstanding' && <OutstandingItems project={p} items={detail ? detail.outstanding : null} />}
+      {tab === 'review' && <ReviewPanel project={p} detail={detail} />}
+      {submitting && <SubmitReviewModal project={p} onClose={() => setSubmitting(false)} onDone={() => setTab('review')} />}
       {tab === 'notes' && (
         <div className="det-grid">
           <div className="det-main"><NotesThread entityType="PROJECT" entityId={projectId} notes={detail ? detail.notes : null} /></div>

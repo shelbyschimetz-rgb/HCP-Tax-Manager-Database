@@ -36,6 +36,14 @@ class FakeRange {
     this.sheet.writes++;
     return this;
   }
+  clearContent() {
+    for (let i = 0; i < this.nr; i++) {
+      const row = this.sheet.data[this.r - 1 + i];
+      if (!row) continue;
+      for (let j = 0; j < this.nc; j++) row[this.c - 1 + j] = '';
+    }
+    return this;
+  }
   getMergedRanges() { return []; }
   setNumberFormat() { return this; }
   setFontWeight() { return this; }
@@ -121,7 +129,10 @@ export function createGas(opts = {}) {
       getId: () => id,
       getName: () => name,
       getUrl: () => 'https://drive.google.com/drive/folders/' + id,
-      isTrashed: () => false,
+      isTrashed: () => !!(state.folders[id] && state.folders[id].trashed),
+      setTrashed(v) { if (state.folders[id]) state.folders[id].trashed = !!v; return this; },
+      getFiles() { const n = (state.folders[id] && state.folders[id].files) || 0; return { hasNext: () => n > 0 }; },
+      getFolders() { const kids = Object.values(state.folders).filter(f => f.parent === id && !f.trashed); return { hasNext: () => kids.length > 0 }; },
       getFoldersByName(n) {
         const hits = Object.values(state.folders).filter(f => f.parent === id && f.name === n);
         let i = 0;
@@ -133,6 +144,7 @@ export function createGas(opts = {}) {
         return makeFolder(fid, n, id);
       },
       createFile(blob) {
+        if (state.folders[id]) state.folders[id].files = (state.folders[id].files || 0) + 1;
         return { getUrl: () => 'https://drive.google.com/file/d/' + crypto.randomBytes(8).toString('hex'), getName: () => blob.name };
       },
     };

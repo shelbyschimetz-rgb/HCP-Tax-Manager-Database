@@ -17,6 +17,7 @@ const PREP = 'jordan.preparer@housecallpro.com';
 const PEER = 'casey.peer@housecallpro.com';
 const BK = 'devon.bk@housecallpro.com';
 
+const YR = new Date().getFullYear();
 const tests = [];
 const test = (name, fn) => tests.push({ name, fn });
 
@@ -102,10 +103,10 @@ test('case owner resolver: first.last, drops middle names, blank when not on ros
 test('SFDC sync: creates pros per new Org ID, dedups, filters record type, seeds notes, flags unknown OS', () => {
   const gas = fresh();
   sfdcSheet(gas, [
-    ['Cedar Creek Plumbing', 'Cherrie Groves', '322284', '2258751', 1.01, 'Pre-intro email sent', '2021-06-08', 'Tax Onboarding', ''],
-    ['Atrium Air', 'Angel Julia Marcos', '485748', '2256937', 1.87, '', '2023-07-30', 'Tax Onboarding', ''],
-    ['Some Payroll Co', 'Cherrie Groves', '999001', '2250000', 2, '', '2023-07-30', 'Payroll Onboarding', ''],
-    ['Cedar Creek Plumbing (dup)', 'Cherrie Groves', '322284', '2258752', 1, '', '2021-06-08', 'Tax Onboarding', ''],
+    ['Cedar Creek Plumbing', 'Cherrie Groves', '322284', '2258751', 1.01, 'Pre-intro email sent', `${YR}-01-08`, 'Tax Onboarding', ''],
+    ['Atrium Air', 'Angel Julia Marcos', '485748', '2256937', 1.87, '', `${YR}-02-11`, 'Tax Onboarding', ''],
+    ['Some Payroll Co', 'Cherrie Groves', '999001', '2250000', 2, '', `${YR}-02-11`, 'Payroll Onboarding', ''],
+    ['Cedar Creek Plumbing (dup)', 'Cherrie Groves', '322284', '2258752', 1, '', `${YR}-01-08`, 'Tax Onboarding', ''],
   ]);
   const s1 = gas.call('runSfdcSync', {});
   assert.equal(s1.created, 2);
@@ -154,7 +155,7 @@ test('load balancer: fewest active pros, round-robin tiebreak, archived excluded
 
 test('claim from inbox: lifecycle → onboarding scheduled, pro tasks materialized with role assignees + due dates', () => {
   const gas = fresh();
-  sfdcSheet(gas, [['Cedar Creek Plumbing', 'Cherrie Groves', '322284', '2258751', 1, '', '2021-06-08', 'Tax Onboarding', '']]);
+  sfdcSheet(gas, [['Cedar Creek Plumbing', 'Cherrie Groves', '322284', '2258751', 1, '', `${YR}-01-08`, 'Tax Onboarding', '']]);
   gas.call('runSfdcSync', {});
   const res = gas.call('claimInbox', { id: '2258751' }, OS);
   assert.equal(res.pro.lifecycle_status, 'ONBOARDING_SCHEDULED');
@@ -587,6 +588,202 @@ test('daily export writes friendly Pros / Tax Returns / report tabs and appends 
   assert.equal(r1.counts.Pros, 1);
   assert.equal(gas.call('getSettings', {}).export.last.counts['Tax Returns'], 1);
   assert.equal(gas.raw('runExport', {}, OS).code, 'FORBIDDEN');
+});
+
+
+test('SFDC sync only takes cases created this calendar year or later', () => {
+  const gas = fresh();
+  sfdcSheet(gas, [
+    ['Old ISO Co', 'Cherrie Groves', '801', 'C801', 1, '', '2022-05-01', 'Tax Onboarding', ''],
+    ['Old US Co', 'Cherrie Groves', '802', 'C802', 1, '', `12/31/${YR - 1} 5:00 PM`, 'Tax Onboarding', ''],
+    ['New US Co', 'Cherrie Groves', '803', 'C803', 1, '', `1/2/${YR} 9:15 AM`, 'Tax Onboarding', ''],
+    ['New Date Co', 'Cherrie Groves', '804', 'C804', 1, '', new Date(YR, 2, 5), 'Tax Onboarding', ''],
+    ['No Date Co', 'Cherrie Groves', '805', 'C805', 1, '', '', 'Tax Onboarding', ''],
+  ]);
+  const s = gas.call('runSfdcSync', {});
+  assert.equal(s.skipped_old, 2);
+  assert.equal(s.created, 3);
+  assert.equal(s.cutoff, YR + '-01-01');
+  const boot = gas.call('bootstrap', {});
+  assert.deepEqual(boot.inbox.map(q => q.org_id).sort(), ['803', '804', '805']);
+  assert.equal(boot.inbox.find(q => q.org_id === '803').created_date, YR + '-01-02');
+  assert.ok(!boot.pros.find(p => p.org_id === '801'));
+});
+
+test('SFDC sync refuses a sheet without a Created Date column', () => {
+  const gas = fresh();
+  const id = gas.addSpreadsheet('SFDC feed', [{ name: 'Report', data: [['Account Name', 'Org ID', 'Case Record Type'], ['X', '1', 'Tax Onboarding']] }]);
+  gas.call('saveSettings', { settings: { sfdc_sheet_id: id } });
+  assert.match(gas.raw('runSfdcSync', {}).error, /Created Date/);
+});
+
+test('cleanup removes untouched pre-year Inbox cases, keeps worked ones, trashes empty folders', () => {
+  const gas = fresh();
+  const parent = gas.addFolder('Client data');
+  gas.call('saveSettings', { settings: { drive_parent_id: parent } });
+  const make = (org, name, date) => gas.ctx.Locks.withLock(() => gas.ctx.Sfdc.createFromCase(
+    { org_id: org, business_name: name, case_owner: 'Cherrie Groves', case_number: 'K' + org, notes: 'SF note', created_date: date, record_type: 'Tax Onboarding' },
+    { created: 0, created_ids: [], flagged_os: 0 }));
+  make('901', 'Stale One', '2022-01-10');
+  make('902', 'Stale Worked', '2023-04-02');
+  make('903', 'Stale With Files', '2024-08-15');
+  make('904', 'Current Co', YR + '-02-01');
+  gas.call('createProject', { fields: { org_id: '902', filing_type: 'F1040_SCHC', tax_year: 2023 } });
+  const withFiles = gas.call('getProDetail', { org_id: '903' }).pro.drive_folder_id;
+  gas.state.folders[withFiles].files = 2;
+  const staleFolder = gas.call('getProDetail', { org_id: '901' }).pro.drive_folder_id;
+  const loadBefore = gas.ctx.Assign.loads().reduce((n, l) => n + l.count, 0);
+
+  const plan = gas.call('sfdcCleanupPreview', {});
+  assert.deepEqual(plan.remove.map(r => r.org_id).sort(), ['901', '903']);
+  assert.deepEqual(plan.keep.map(r => [r.org_id, r.reason]), [['902', 'has a tax return']]);
+  assert.equal(gas.raw('sfdcCleanup', {}, OS).code, 'FORBIDDEN');
+
+  const res = gas.call('sfdcCleanup', {});
+  assert.equal(res.removed, 1);
+  assert.equal(res.pros_removed, 1);
+  assert.equal(res.folders_trashed, 1);
+  assert.equal(res.dismissed, 2);
+  assert.ok(gas.state.folders[staleFolder].trashed);
+  assert.ok(!gas.state.folders[withFiles].trashed);
+  const boot = gas.call('bootstrap', {});
+  assert.deepEqual(boot.inbox.map(q => q.org_id), ['904']);
+  assert.ok(!boot.pros.find(p => p.org_id === '901'), 'untouched stale pro removed');
+  assert.ok(boot.pros.find(p => p.org_id === '902') && boot.pros.find(p => p.org_id === '903'), 'worked pros kept');
+  assert.equal(gas.ctx.Assign.loads().reduce((n, l) => n + l.count, 0), loadBefore - 1, 'advisor load drops');
+  assert.equal(gas.ctx.Db.where('Notes', n => n.entity_id === '901').length, 0);
+  assert.equal(gas.call('sfdcCleanupPreview', {}).remove.length, 0, 'second run has nothing left');
+});
+
+function reviewProject(gas, org, extra = {}) {
+  gas.call('createPro', { fields: { org_id: org, business_name: 'Review Co ' + org, assigned_advisor_email: ADV_A } });
+  return gas.call('createProject', { fields: { org_id: org, filing_type: 'F1040_SCHC', tax_year: 2025, tax_preparer_email: PREP, pipeline_status: 'PREP', ...extra } }).project;
+}
+const reviewTasks = (gas, pid) => gas.call('getProjectDetail', { project_id: pid }).tasks;
+const taskNamed = (tasks, re) => tasks.find(t => re.test(t.title));
+
+test('peer review: submit validates, moves to QA, closes self-review, opens the reviewer task', () => {
+  const gas = fresh();
+  const p = reviewProject(gas, '601');
+  const base = { project_id: p.project_id, safe_harbor_amount: '$1,250', add_ons: ['Schedule C'], comments: 'Pro used transcript; no K-1.' };
+  assert.equal(gas.raw('submitPeerReview', { ...base, add_ons: [] }, PREP).code, 'VALIDATION');
+  assert.equal(gas.raw('submitPeerReview', { ...base, add_ons: ['No add-ons', 'Schedule C'] }, PREP).code, 'VALIDATION');
+  assert.equal(gas.raw('submitPeerReview', { ...base, safe_harbor_amount: 'lots' }, PREP).code, 'VALIDATION');
+  const res = gas.call('submitPeerReview', base, PREP);
+  assert.equal(res.review.status, 'SUBMITTED');
+  assert.equal(res.review.safe_harbor_amount, '1250.00');
+  assert.equal(res.review.submitted_by, PREP);
+  assert.equal(res.review.advisor_email, ADV_A);
+  assert.equal(res.review.business_name, 'Review Co 601');
+  assert.equal(res.project.pipeline_status, 'QA');
+  assert.equal(res.project.add_ons, 'Schedule C');
+  const tasks = reviewTasks(gas, p.project_id);
+  assert.equal(taskNamed(tasks, /submit for peer review/i).status, 'DONE');
+  const rt = taskNamed(tasks, /peer review verification/i);
+  assert.equal(rt.task_id, res.review.review_task_id);
+  assert.equal(rt.assignee_email, '');
+  assert.ok(rt.due_date, 'review task gets a due date');
+  assert.equal(gas.raw('submitPeerReview', base, PREP).code, 'CONFLICT', 'one open review per return');
+  const d = gas.call('getProjectDetail', { project_id: p.project_id });
+  assert.match(d.notes[d.notes.length - 1].body, /Submitted for peer review.*Schedule C.*\$1,250\.00/s);
+  assert.equal(d.reviews.length, 1);
+  assert.equal(gas.call('bootstrap', {}, PEER).reviews.length, 1);
+});
+
+test('peer review: claim → rework → resubmit → complete drives tasks, stage, notes and the report', () => {
+  const gas = fresh();
+  const p = reviewProject(gas, '602');
+  const id = gas.call('submitPeerReview', { project_id: p.project_id, add_ons: ['Schedule C', 'Additional State(s)'], comments: 'CO + UT' }, PREP).review.review_id;
+  assert.equal(gas.raw('claimPeerReview', { review_id: id }, PREP).code, 'FORBIDDEN', 'submitter can\'t claim');
+  assert.equal(gas.raw('claimPeerReview', { review_id: id }, ADV_B).code, 'FORBIDDEN', 'needs PEER_REVIEWER role');
+  const c = gas.call('claimPeerReview', { review_id: id }, PEER);
+  assert.equal(c.review.status, 'IN_REVIEW');
+  assert.equal(c.project.peer_reviewer_email, PEER);
+  const rt = taskNamed(c.tasks, /peer review verification/i);
+  assert.equal(rt.assignee_email, PEER);
+  assert.equal(rt.status, 'IN_PROGRESS');
+  assert.ok(gas.call('bootstrap', {}, PEER).myTasks.some(t => t.task_id === rt.task_id), 'shows in the reviewer\'s My Tasks');
+  assert.equal(gas.raw('claimPeerReview', { review_id: id }, ADMIN).code, 'CONFLICT', 'already claimed');
+
+  assert.equal(gas.raw('reworkPeerReview', { review_id: id, notes: 'x' }, ADV_A).code, 'FORBIDDEN');
+  assert.equal(gas.raw('reworkPeerReview', { review_id: id, notes: ' ' }, PEER).code, 'VALIDATION');
+  const w = gas.call('reworkPeerReview', { review_id: id, notes: 'UT apportionment missing' }, PEER);
+  assert.equal(w.review.status, 'REWORK');
+  assert.equal(w.review.rework_count, 1);
+  const at = taskNamed(w.tasks, /apply peer-review changes/i);
+  assert.equal(at.assignee_email, PREP);
+  assert.equal(at.blocked_by, '');
+  assert.ok(gas.call('bootstrap', {}, PREP).myTasks.some(t => t.task_id === at.task_id), 'rework shows in the preparer\'s My Tasks');
+
+  assert.equal(gas.raw('resubmitPeerReview', { review_id: id }, ADV_B).code, 'FORBIDDEN');
+  const s = gas.call('resubmitPeerReview', { review_id: id, note: 'Added UT TC-65' }, PREP);
+  assert.equal(s.review.status, 'IN_REVIEW');
+  assert.equal(s.review.round, 2);
+  assert.equal(taskNamed(s.tasks, /apply peer-review changes/i).status, 'DONE');
+
+  const done = gas.call('completePeerReview', { review_id: id, notes: 'Looks good', advance: true }, PEER);
+  assert.equal(done.review.status, 'COMPLETE');
+  assert.equal(done.review.completed_by, PEER);
+  assert.equal(done.project.pipeline_status, 'CLIENT_REVIEW');
+  assert.equal(taskNamed(reviewTasks(gas, p.project_id), /peer review verification/i).status, 'DONE');
+  const d = gas.call('getProjectDetail', { project_id: p.project_id });
+  const bodies = d.notes.map(n => n.body).join('\n');
+  assert.match(bodies, /needs rework \(round 1\)[\s\S]*UT apportionment missing/);
+  assert.match(bodies, /Resubmitted for peer review \(round 2\)/);
+  assert.match(bodies, /Peer review complete after 2 rounds/);
+  assert.deepEqual(d.reviews[0].events.map(e => e.action), ['SUBMITTED', 'CLAIMED', 'REWORK', 'RESUBMITTED', 'COMPLETED']);
+  assert.equal(gas.call('bootstrap', {}).reviews.length, 0, 'closed reviews leave the open queue');
+  assert.equal(gas.call('getPeerReviews', { closed: true }).length, 1);
+
+  const rep = gas.call('getReports', {}).peer;
+  assert.equal(rep.queue.completed, 1);
+  assert.deepEqual(pickR(rep.reviewers[0]), { reviewer_email: PEER, completed: 1, sent_back: 1, rework_rate: 100 });
+  assert.equal(rep.submitters[0].submitted_by, PREP);
+  assert.equal(rep.submitters[0].reworked, 1);
+  assert.equal(rep.log[0].rounds, 2);
+  assert.ok(rep.log[0].hours_to_claim != null);
+
+  gas.call('runExport', {});
+  const ex = gas.spreadsheet(gas.state.props.EXPORT_SHEET_ID);
+  const rows = ex.getSheetByName('Peer reviews').data;
+  assert.equal(rows[1][rows[0].indexOf('Status')], 'Review complete');
+  assert.equal(rows[1][rows[0].indexOf('Reviewer')], 'Casey Peer');
+  assert.ok(ex.getSheetByName('Peer review summary'));
+});
+function pickR(r) { return { reviewer_email: r.reviewer_email, completed: r.completed, sent_back: r.sent_back, rework_rate: r.rework_rate }; }
+
+test('peer review: designated reviewer gets the task at submit; release and cancel', () => {
+  const gas = fresh();
+  const p = reviewProject(gas, '603', { peer_reviewer_email: PEER });
+  const sub = gas.call('submitPeerReview', { project_id: p.project_id, add_ons: ['No add-ons'] }, PREP);
+  assert.equal(sub.review.reviewer_email, PEER);
+  assert.ok(!sub.project.add_ons, '"No add-ons" leaves the project field empty');
+  assert.equal(taskNamed(sub.tasks, /peer review verification/i).assignee_email, PEER);
+  const id = sub.review.review_id;
+  gas.call('claimPeerReview', { review_id: id }, PEER);
+  const rel = gas.call('releasePeerReview', { review_id: id }, PEER);
+  assert.equal(rel.review.status, 'SUBMITTED');
+  assert.equal(rel.review.reviewer_email, '');
+  assert.equal(taskNamed(rel.tasks, /peer review verification/i).assignee_email, '');
+  assert.equal(gas.raw('cancelPeerReview', { review_id: id, reason: 'dup' }, ADV_B).code, 'FORBIDDEN');
+  assert.equal(gas.raw('cancelPeerReview', { review_id: id, reason: '' }, PREP).code, 'VALIDATION');
+  assert.equal(gas.call('cancelPeerReview', { review_id: id, reason: 'Sent too early' }, PREP).review.status, 'CANCELLED');
+  // a fresh review can follow a cancelled one, and the reviewer's checklist starts over
+  const again = gas.call('submitPeerReview', { project_id: p.project_id, add_ons: ['Schedule C'] }, PREP);
+  assert.equal(again.review.status, 'SUBMITTED');
+  assert.ok(taskNamed(again.tasks, /peer review verification/i).checklist.every(c => !c.checked));
+  assert.equal(gas.raw('submitPeerReview', { project_id: p.project_id, add_ons: ['Schedule C'], reviewer_email: PREP }, PREP).code, 'CONFLICT');
+});
+
+test('new tabs and columns appear after a code update without re-running setup', () => {
+  const gas = fresh();
+  const ss = gas.spreadsheet();
+  ss.deleteSheet(ss.getSheetByName('PeerReviews'));
+  delete gas.state.props.SCHEMA_SIG;
+  gas.ctx.Db.clearCache();
+  gas.call('bootstrap', {});
+  assert.ok(ss.getSheetByName('PeerReviews'), 'tab recreated on first use');
+  assert.ok(gas.state.props.SCHEMA_SIG);
 });
 
 /* ------------------------------------------------------------------ */

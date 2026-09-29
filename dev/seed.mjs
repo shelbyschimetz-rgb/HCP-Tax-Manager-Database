@@ -46,6 +46,7 @@ const SFDC_ROWS = [
   ['Sleepwell Plumbing', 'Alex Onboard', '503122', '2258736', 1.01, 'Multi-product onboarding (Accounting + Tax). Pro confirmed meeting tomorrow.', '2026-09-21', 'Tax Onboarding', ''],
   ['Atrium Air', 'Angel Julia Marcos', '485748', '2256937', 1.87, '', '2026-09-22', 'Tax Onboarding', ''],
   ['Bright Payroll Co', 'Alex Onboard', '599001', '2256000', 2, '', '2026-09-22', 'Payroll Onboarding', ''],
+  ['Old Case Plumbing', 'Alex Onboard', '599002', '2201000', 800, 'From 2023, should be skipped', '2023-03-14', 'Tax Onboarding', ''],
 ];
 
 export function seed(gas) {
@@ -126,6 +127,24 @@ export function seed(gas) {
   const p0 = projs[0].project_id;
   me('addOutstanding', { project_id: p0, item: '1099-NEC payer summary', owner_email: 'cherrie.groves@housecallpro.com', due_date: '2026-09-30' });
   me('addOutstanding', { project_id: p0, item: 'Vehicle mileage log', owner_email: '', due_date: '' });
+
+  // Peer reviews in each state
+  const asUser = (user, action, payload) => gas.call(action, payload, user);
+  const open = gas.ctx.Db.list('Projects').filter((p) => ['PREP', 'WFP', 'DOC_GATHERING'].includes(p.pipeline_status) && !p.archived);
+  const byPrep = (email) => open.find((p) => p.tax_preparer_email === email && !gas.ctx.PeerReviews.activeFor(p.project_id));
+  const j = byPrep('jordan.prep@housecallpro.com');
+  if (j) asUser('jordan.prep@housecallpro.com', 'submitPeerReview', { project_id: j.project_id, safe_harbor_amount: '4,200', add_ons: ['Schedule C', 'Additional State(s)'], comments: 'Multi-state: CO + UT. Pro used the 2025 transcript since no K-1 arrived.' });
+  const r = byPrep('riley.advisor@housecallpro.com');
+  if (r) {
+    const id = asUser('riley.advisor@housecallpro.com', 'submitPeerReview', { project_id: r.project_id, safe_harbor_amount: '1250', add_ons: ['Schedule E'], comments: '' }).review.review_id;
+    asUser('casey.review@housecallpro.com', 'claimPeerReview', { review_id: id });
+    asUser('casey.review@housecallpro.com', 'reworkPeerReview', { review_id: id, notes: 'Depreciation on the 2023 truck is missing from the 4562. Estimated payments don\'t tie to the IRS transcript.' });
+  }
+  const d = byPrep(DEV_USER);
+  if (d) {
+    const id = me('submitPeerReview', { project_id: d.project_id, add_ons: ['No add-ons'], comments: 'Straightforward return.' }).review.review_id;
+    asUser('casey.review@housecallpro.com', 'claimPeerReview', { review_id: id });
+  }
 
   me('runSfdcSync', {});
   return gas;

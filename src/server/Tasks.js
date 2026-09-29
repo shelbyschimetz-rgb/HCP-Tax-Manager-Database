@@ -192,7 +192,9 @@ var Tasks = (function () {
     return changed;
   }
 
-  function create(p) {
+  /** opts (server-side callers only): role → assignee_role, checklist → array of labels. */
+  function create(p, opts) {
+    opts = opts || {};
     if (!p.title || !String(p.title).trim()) throw new AppError('Task needs a title.');
     if (p.entity_type !== 'PRO' && p.entity_type !== 'PROJECT') throw new AppError('Bad entity type.');
     var rec = p.entity_type === 'PRO' ? Db.get('Pros', p.entity_id) : Db.get('Projects', p.entity_id);
@@ -210,11 +212,11 @@ var Tasks = (function () {
       section: p.section || 'GENERAL',
       title: String(p.title).trim(),
       assignee_email: p.assignee_email || '',
-      assignee_role: '',
+      assignee_role: opts.role || '',
       due_date: p.due_date || '',
       status: 'NOT_STARTED',
       sort_order: order,
-      checklist: null,
+      checklist: opts.checklist ? opts.checklist.map(function (label, j) { return { id: 'c' + (j + 1), label: label, checked: false }; }) : null,
     });
     Audit.log(p.entity_type, p.entity_id, 'Created task', 'task', '', row.title);
     return row;

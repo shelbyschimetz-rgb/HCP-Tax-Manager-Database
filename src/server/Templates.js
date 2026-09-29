@@ -177,5 +177,6 @@ var Templates = (function () {
   return {
     all: all, active: active, versions: versions, currentVersion: currentVersion, publish: publish,
     save: save, remove: remove, reorder: reorder, preview: preview, seedIfEmpty: seedIfEmpty,
+    PEER_REVIEW_CHECKLIST: PEER_REVIEW_CHECKLIST,
   };
 })();

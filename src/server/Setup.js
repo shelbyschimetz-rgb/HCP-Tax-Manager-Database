@@ -50,6 +50,7 @@ var Setup = {
     }
     Db.clearCache();
     var tabs = Setup.ensureTabs(ss);
+    setProp_(PROP.SCHEMA_SIG, Setup.schemaSig());
     if (created) {
       var first = ss.getSheetByName('Sheet1');
       if (first && ss.getSheets().length > 1) ss.deleteSheet(first);
@@ -72,6 +73,23 @@ var Setup = {
 
   nameFromEmail: function (email) {
     return email.split('@')[0].split(/[._]/).map(function (s) { return s.charAt(0).toUpperCase() + s.slice(1); }).join(' ');
+  },
+
+  schemaSig: function () {
+    return Object.keys(SCHEMA).map(function (k) { return k + ':' + SCHEMA[k].cols.join(','); }).join('|');
+  },
+
+  /** Runs once per code version that changes SCHEMA: adds new tabs/columns in place. */
+  upgradeIfNeeded: function (ss) {
+    var sig = Setup.schemaSig();
+    if (getProp_(PROP.SCHEMA_SIG) === sig) return false;
+    try {
+      Setup.ensureTabs(ss);
+      setProp_(PROP.SCHEMA_SIG, sig);
+    } catch (e) {
+      console.warn('Schema upgrade deferred: ' + (e && e.message));
+    }
+    return true;
   },
 
   /** Create missing tabs and append any missing header columns. */

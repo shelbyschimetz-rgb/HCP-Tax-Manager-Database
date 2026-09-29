@@ -48,6 +48,8 @@ var API_ACTIONS = {
   recentlyClaimed: R(function () { return Sfdc.recentlyClaimed(); }),
   getSettings: ADMIN_R(function () { return Boot.settings(); }),
   importPreview: ADMIN_R(function (p) { return Migration.preview(p.kind, p.csv); }),
+  getPeerReviews: R(function (p) { return p.closed ? PeerReviews.closed(p.limit) : PeerReviews.open(); }),
+  sfdcCleanupPreview: ADMIN_R(function () { return Sfdc.cleanupPlan(); }),
 
   /* ---- pros ---- */
   createPro: M(function (p) { return Pros.create(p.fields || {}); }),
@@ -79,6 +81,15 @@ var API_ACTIONS = {
   startTimer: M(function (p) { return Timer.start(p.project_id, p.force); }),
   stopTimer: M(function (p) { return Timer.stop(p.entry_id); }),
 
+  /* ---- peer review ---- */
+  submitPeerReview: M(function (p) { return PeerReviews.submit(p); }),
+  claimPeerReview: M(function (p) { return PeerReviews.claim(p.review_id); }),
+  releasePeerReview: M(function (p) { return PeerReviews.release(p.review_id); }),
+  reworkPeerReview: M(function (p) { return PeerReviews.rework(p.review_id, p.notes); }),
+  resubmitPeerReview: M(function (p) { return PeerReviews.resubmit(p.review_id, p); }),
+  completePeerReview: M(function (p) { return PeerReviews.complete(p.review_id, p); }),
+  cancelPeerReview: M(function (p) { return PeerReviews.cancel(p.review_id, p.reason); }),
+
   /* ---- inbox + intake ---- */
   claimInbox: M(function (p) { return Sfdc.claim(p.id); }),
   dismissInbox: M(function (p) { return Sfdc.dismiss(p.id); }),
@@ -103,6 +114,7 @@ var API_ACTIONS = {
   /* ---- admin ---- */
   saveSettings: ADMIN_M(function (p) { return Boot.saveSettings(p.settings || {}); }),
   runSfdcSync: ADMIN_M(function () { return Sfdc.sync(); }),
+  sfdcCleanup: ADMIN_M(function () { return Sfdc.cleanupOld(); }),
   runExport: ADMIN_R(function () { Setup.installTriggers(); return Exports.run(); }),
   importApply: ADMIN_M(function (p) { return Migration.apply(p.kind, p.csv, p.options || {}); }),
 };
@@ -193,6 +205,7 @@ var Boot = {
       projects: projects,
       myTasks: myTasks,
       inbox: Sfdc.inbox(),
+      reviews: PeerReviews.open(),
       timer: timer,
       config: {
         today: today,
@@ -200,6 +213,7 @@ var Boot = {
         enums: ENUMS,
         timer_max_hours: Number(getProp_(PROP.TIMER_MAX_HOURS, DEFAULTS.TIMER_MAX_HOURS)),
         sfdc_last_sync: getProp_(PROP.LAST_SFDC_SYNC),
+        sfdc_first_year: Sfdc.firstYear(),
         url: Boot.url(),
       },
       server_time: nowIso_(),
@@ -260,6 +274,7 @@ var Boot = {
       history: Stages.forProject(projectId),
       time: Timer.forProject(projectId),
       outstanding: Outstanding.forProject(projectId),
+      reviews: PeerReviews.forProject(projectId),
     };
   },
 
@@ -304,6 +319,7 @@ var Boot = {
       timer_max_hours: Number(getProp_(PROP.TIMER_MAX_HOURS, DEFAULTS.TIMER_MAX_HOURS)),
       sfdc_last_sync: getProp_(PROP.LAST_SFDC_SYNC),
       sfdc_last_result: last ? JSON.parse(last) : null,
+      sfdc_first_year: Sfdc.firstYear(),
       triggers: ScriptApp.getProjectTriggers().map(function (t) { return t.getHandlerFunction(); }),
       export: Exports.status(),
       url: Boot.url(),

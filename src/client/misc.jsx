@@ -512,7 +512,7 @@ export function Inbox() {
             <Icon name="inbox" size={22} /> Inbox
             <span className="pill" style={{ background: 'var(--primary-50)', color: 'var(--primary-dark)' }}>{inbox.length} new case{inbox.length === 1 ? '' : 's'}</span>
           </div>
-          <div className="ph-meta">New tax onboarding cases from Salesforce (syncs every 4h). A Pro record is auto-created per new Org ID; claim one to run onboarding.</div>
+          <div className="ph-meta">New tax onboarding cases from Salesforce created in {new Date().getFullYear()} or later (syncs every 4h). A Pro record is auto-created per new Org ID; claim one to run onboarding.</div>
         </div>
         <div className="ph-actions">
           <span className="sync-pill" title="Salesforce sheet feed"><span className="dot" /> {lastSync ? 'Synced ' + relTime(lastSync) : 'Not synced yet'}</span>

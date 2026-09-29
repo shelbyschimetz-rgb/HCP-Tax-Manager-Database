@@ -56,12 +56,24 @@ You need three files: **Code.gs**, **index.html**, and **appsscript.json**. To r
 Rows are matched by Org ID and by each Asana project's own link, so re-importing a file updates records instead of duplicating them. Import once, at cutover: re-importing overwrites edits made in Tax Manager since.
 
 ## Daily reports sheet
-In **Settings → Daily reports sheet**, click **Export now** once. That creates **Tax Manager Reports** in your Drive and turns on the daily refresh (~6am): Pros, Tax Returns, the six reports, and a growing **Pipeline history** tab.
+In **Settings → Daily reports sheet**, click **Export now** once. That creates **Tax Manager Reports** in your Drive and turns on the daily refresh (~6am): Pros, Tax Returns, each report, **Peer reviews**, **Peer review summary**, and a growing **Pipeline history** tab.
 
 ## Updating later (keeps the same link)
 1. Paste the new **Code.gs** and **index.html** over the old ones and save.
 2. Go to **Deploy → Manage deployments** → **pencil icon** → **Version: New version** → **Deploy**.
 3. If the update adds a background job, open **Settings** in the app and click **Save settings** (or run `setup` again) to switch it on.
+
+New database tabs and columns (like **PeerReviews**) are added automatically the first time someone opens the app after an update. You don't need to run `setup` again.
+
+## Salesforce cases from past years
+The sync only takes cases whose **Created Date** is in the current calendar year or later. The cutoff moves forward on its own every January 1. To clear out cases that came in before this rule existed, go to **Settings → Salesforce onboarding feed → Clear out old cases** and click **Find old cases**. It shows:
+- how many untouched pros would be removed (their empty Drive folders go to the Drive trash for 30 days);
+- which pros have work and will be kept. Those only leave the Inbox.
+
+Click **Clean up** to run it. If it says there are more to do, click **Find old cases** again.
+
+## Peer review
+Peer review replaces the Slack "Tax QA Peer Review" workflow. Preparers submit from a project's **Peer review** tab, and reviewers claim from **Peer Review** in the sidebar. Only people with `PEER_REVIEWER` (or EXEC/ADMIN) in their Identity roles can claim reviews, so add that role to every reviewer before you retire the Slack workflow.
 
 ## If something goes wrong
 - **Health check:** add `?diag=1` to the end of the app URL (…/exec?diag=1). It lists each part of the setup as OK or FAIL, with the fix.

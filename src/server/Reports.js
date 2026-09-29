@@ -130,6 +130,7 @@ var Reports = {
       time_by_type: Object.keys(byType).map(function (k) { return { filing_type: k, minutes: byType[k] }; }),
       risk: risk,
       balance: { loads: loads, next: Assign.nextAdvisor(loads) },
+      peer: PeerReviews.report(),
     };
   },
 };

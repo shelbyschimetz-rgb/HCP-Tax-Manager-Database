@@ -40,6 +40,8 @@ Run these against the deployed web app after first setup and after each major re
 
 ## Salesforce → Inbox → Wizard
 - [ ] Settings → **Sync now** creates one pro per new Org ID (Tax Onboarding rows only), and a second run creates nothing.
+- [ ] Cases with a Created Date before this calendar year are skipped. The last-run line counts them as "created before <year>".
+- [ ] Settings → **Clear out old cases** → **Find old cases** lists untouched pros to remove and worked pros to keep. **Clean up** removes the untouched ones and trashes their empty Drive folders. The Inbox keeps only current-year cases.
 - [ ] A case owner not on the roster shows "OS needs manual assignment" on the Inbox card.
 - [ ] **Claim & start onboarding** opens the wizard with a green banner. The pro gets its onboarding tasks.
 - [ ] Upload a filled "Make A Copy Tax Notes" workbook. The review shows values with their source cells. Uncheck a row, apply, and confirm the pro fields, owners, and intake answers are filled. The original .xlsx is in the pro's Drive folder.
@@ -47,7 +49,16 @@ Run these against the deployed web app after first setup and after each major re
 - [ ] Create Drive folder: running it twice doesn't create a duplicate.
 - [ ] Create return project(s) → projects appear with template tasks. **Finish onboarding** sets the pro to Onboarded.
 
+## Peer review
+- [ ] On a project in Prep, open **Peer review → Submit for peer review**. Org ID, company, year, and return type are filled in. Submitting without add-ons shows an error. Picking "No add-ons" clears the other choices.
+- [ ] After submitting, the project is in QA and the Peer review tab shows **Waiting for reviewer**. The project Notes tab has the submission. **Self-review and submit for peer review** is checked.
+- [ ] As someone without the Peer Reviewer role, there's no Claim button. As the submitter, you can't claim your own return.
+- [ ] As a peer reviewer, **Peer Review** in the sidebar lists the return. **Claim** puts **Peer Review Verification** in your My Tasks, and you can tick the checklist on the Peer review tab.
+- [ ] **Needs rework** needs notes. The submitter gets **Apply peer-review changes** in My Tasks and sees the orange rework box.
+- [ ] **Resubmit** returns it to the same reviewer as round 2. **Review complete** with "Move to Client review" ticked moves the project to Client review.
+- [ ] Reports → **Peer review** shows the queue, the by-reviewer and by-preparer tables, and the full log. The daily sheet has **Peer reviews** and **Peer review summary** tabs.
+
 ## Templates, reports, settings
 - [ ] Non-admins can view templates but can't edit them. Admins can add, edit, reorder (drag), toggle active, and **Publish version**.
-- [ ] Each of the six reports renders and **Export CSV** downloads a file.
+- [ ] Each of the seven reports renders and **Export CSV** downloads a file.
 - [ ] Preferences (avatar menu): density, dark mode, accent, pill style, and navigation all persist across reloads.

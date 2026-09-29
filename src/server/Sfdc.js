@@ -5,9 +5,11 @@
  *   Account Name | Case Owner | Org ID | Case Number | Service Time (Days) |
  *   Sub-Status Notes | Created Date | Case Record Type | Date/Time Closed
  *
- * Every row with Case Record Type = "Tax Onboarding" and an Org ID we have not
- * seen creates a Pro (deduped on Org ID) plus an Inbox queue row. The OS then
- * claims it from the Inbox to start onboarding — auto-create never starts it.
+ * Every row with Case Record Type = "Tax Onboarding", a Created Date in the
+ * current calendar year or later, and an Org ID we have not seen creates a Pro
+ * (deduped on Org ID) plus an Inbox queue row. The OS then claims it from the
+ * Inbox to start onboarding — auto-create never starts it. Older cases are
+ * history, not new work, so they are skipped (the cutoff rolls every Jan 1).
  */
 
 var SFDC_HEADERS = {
@@ -34,6 +36,28 @@ function headerIndex_(headerRow, spec) {
   return idx;
 }
 
+function pad2_(n) { return ('0' + n).slice(-2); }
+
+/** Salesforce date cell → YYYY-MM-DD, or '' if it isn't a recognizable date. */
+function caseDate_(v) {
+  if (v == null || v === '') return '';
+  if (v instanceof Date) return isNaN(v.getTime()) ? '' : Utilities.formatDate(v, Session.getScriptTimeZone(), 'yyyy-MM-dd');
+  var s = String(v).trim();
+  var m = s.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if (m) return m[1] + '-' + pad2_(m[2]) + '-' + pad2_(m[3]);
+  m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4}|\d{2})(?!\d)/);
+  if (m) return (m[3].length === 2 ? '20' + m[3] : m[3]) + '-' + pad2_(m[1]) + '-' + pad2_(m[2]);
+  return '';
+}
+
+/** Calendar year of a case date (any format caseDate_ reads, or a bare 4-digit year), else null. */
+function caseYear_(v) {
+  var d = caseDate_(v);
+  if (d) return Number(d.slice(0, 4));
+  var m = String(v == null ? '' : v).match(/\b(19|20)\d{2}\b/);
+  return m ? Number(m[0]) : null;
+}
+
 function cellStr_(v) {
   if (v == null) return '';
   if (v instanceof Date) return Utilities.formatDate(v, Session.getScriptTimeZone(), 'yyyy-MM-dd');
@@ -41,11 +65,17 @@ function cellStr_(v) {
 }
 
 var Sfdc = {
+  /** Cases created before Jan 1 of this year are skipped by the sync. */
+  firstYear: function () { return Number(todayIso_().slice(0, 4)); },
+
   /** Parse source rows (2D array incl. header) into normalized case objects. */
   parse: function (values) {
     if (!values || values.length < 2) return [];
     var idx = headerIndex_(values[0], SFDC_HEADERS);
     if (idx.org_id == null) throw new AppError('SFDC source sheet has no "Org ID" column.');
+    if (idx.created_date == null) {
+      throw new AppError('SFDC source sheet has no "Created Date" column. Tax Manager needs it to skip cases from before ' + Sfdc.firstYear() + '.');
+    }
     var out = [];
     for (var r = 1; r < values.length; r++) {
       var row = values[r];
@@ -59,7 +89,7 @@ var Sfdc = {
         case_number: get('case_number').replace(/\.0+$/, ''),
         service_days: Number(get('service_days')) || null,
         notes: get('notes'),
-        created_date: get('created_date').slice(0, 10),
+        created_date: caseDate_(get('created_date')) || get('created_date'),
         record_type: get('record_type'),
         date_closed: get('date_closed'),
       });
@@ -69,11 +99,17 @@ var Sfdc = {
 
   /** Apply parsed cases. Returns a summary; safe to run repeatedly. */
   apply: function (cases) {
-    var summary = { scanned: cases.length, skipped_type: 0, existing: 0, created: 0, flagged_os: 0, created_ids: [], errors: [], deferred: 0 };
+    var minYear = Sfdc.firstYear();
+    var summary = {
+      scanned: cases.length, skipped_type: 0, skipped_old: 0, existing: 0, created: 0, flagged_os: 0,
+      created_ids: [], errors: [], deferred: 0, cutoff: minYear + '-01-01',
+    };
     var t0 = Date.now();
     var BUDGET_MS = 240000; // leave headroom under the 6-minute limit; the rest go next run
     cases.forEach(function (c) {
       if (c.record_type && !/tax onboarding/i.test(c.record_type)) { summary.skipped_type++; return; }
+      var yr = caseYear_(c.created_date);
+      if (yr && yr < minYear) { summary.skipped_old++; return; }
       if (Db.get('Pros', c.org_id)) { summary.existing++; return; }
       if (Date.now() - t0 > BUDGET_MS) { summary.deferred++; return; }
       try {
@@ -153,6 +189,83 @@ var Sfdc = {
     if (patch.lifecycle_status) Audit.log('PRO', pro.org_id, 'Transitioned lifecycle', 'lifecycle_status', 'CLOSED_WON', patch.lifecycle_status);
     var tasks = Tasks.materialize('PRO', pro);
     return { pro: pro, tasks: tasks };
+  },
+
+  /**
+   * Unclaimed Inbox cases created before this year (pulled in before the
+   * sync skipped them). Pros nobody has touched are removed with their empty
+   * Drive folder; pros with any real work stay and just leave the Inbox.
+   */
+  cleanupPlan: function () {
+    var minYear = Sfdc.firstYear();
+    var old = Db.where('SfdcIntakeQueue', function (q) {
+      var y = caseYear_(q.created_date);
+      return q.state === 'NEW' && y && y < minYear;
+    });
+    var has = { project: {}, task: {}, note: {}, answer: {} };
+    Db.list('Projects').forEach(function (p) { has.project[p.org_id] = true; });
+    Db.list('Tasks').forEach(function (t) { if (t.entity_type === 'PRO') has.task[t.entity_id] = true; });
+    Db.list('Notes').forEach(function (n) { if (n.entity_type === 'PRO' && !n.deleted && n.author_email !== 'salesforce') has.note[n.entity_id] = true; });
+    Db.list('IntakeAnswers').forEach(function (a) { has.answer[a.org_id] = true; });
+    var remove = [], keep = [];
+    old.forEach(function (q) {
+      var p = Db.get('Pros', q.org_id);
+      var why = !p ? ''
+        : p.source_ref ? 'imported from Asana'
+        : has.project[p.org_id] ? 'has a tax return'
+        : has.task[p.org_id] ? 'has tasks'
+        : has.note[p.org_id] ? 'has notes'
+        : has.answer[p.org_id] ? 'has intake answers'
+        : p.onboarding_claimed_by ? 'onboarding was started'
+        : Number(p.row_version || 1) > 1 ? 'edited in Tax Manager'
+        : '';
+      var row = {
+        id: q.sfdc_opportunity_id, org_id: q.org_id, business_name: q.business_name, created_date: q.created_date,
+        has_pro: !!p, folder_id: p ? p.drive_folder_id || '' : '', reason: why,
+      };
+      (why ? keep : remove).push(row);
+    });
+    return { before: minYear + '-01-01', remove: remove, keep: keep };
+  },
+
+  cleanupOld: function () {
+    var plan = Sfdc.cleanupPlan();
+    var t0 = Date.now();
+    var BUDGET_MS = 200000; // Drive calls are the slow part; the rest go on the next click
+    var removed = [], deferred = 0, trashed = 0;
+    var keep = plan.keep.slice();
+    plan.remove.forEach(function (r) {
+      if (Date.now() - t0 > BUDGET_MS) { deferred++; return; }
+      if (r.folder_id) {
+        try {
+          var f = DriveApp.getFolderById(r.folder_id);
+          if (f.getFiles().hasNext() || f.getFolders().hasNext()) {
+            keep.push({ id: r.id, org_id: r.org_id, business_name: r.business_name, reason: 'Drive folder has files' });
+            return;
+          }
+          f.setTrashed(true);
+          trashed++;
+        } catch (e) { /* folder already gone or not shared with the deployer */ }
+      }
+      removed.push(r);
+    });
+    var orgs = {};
+    removed.forEach(function (r) { if (r.has_pro) orgs[r.org_id] = true; });
+    var noteIds = Db.where('Notes', function (n) { return n.entity_type === 'PRO' && n.author_email === 'salesforce' && orgs[n.entity_id]; })
+      .map(function (n) { return n.note_id; });
+    Db.removeMany('Notes', noteIds);
+    var prosRemoved = Db.removeMany('Pros', Object.keys(orgs));
+    Db.removeMany('SfdcIntakeQueue', removed.map(function (r) { return r.id; }));
+    var me = Identity.currentEmail();
+    keep.forEach(function (k) {
+      if (Db.get('SfdcIntakeQueue', k.id)) Db.update('SfdcIntakeQueue', k.id, { state: 'DISMISSED', dismissed_by: me, dismissed_at: nowIso_() });
+    });
+    Audit.log('SYSTEM', 'sfdc', 'Removed Salesforce cases created before ' + plan.before, 'inbox', '',
+      removed.length + ' removed, ' + keep.length + ' dismissed');
+    return {
+      before: plan.before, removed: removed.length, pros_removed: prosRemoved, folders_trashed: trashed,
+      dismissed: keep.length, kept: keep, deferred: deferred,
+    };
   },
 
   dismiss: function (qid) {

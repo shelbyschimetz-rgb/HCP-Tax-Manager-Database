@@ -19,6 +19,7 @@ let state = {
   projects: [],
   myTasks: [],
   inbox: [],
+  reviews: [],
   timer: null,
   config: {},
   details: { pro: {}, project: {} },
@@ -61,6 +62,7 @@ export function applyBoot(data) {
     projects: data.projects || [],
     myTasks: data.myTasks || [],
     inbox: data.inbox || [],
+    reviews: data.reviews || [],
     timer: data.timer || null,
     config: data.config || {},
     details: { pro: {}, project: {} },
@@ -663,6 +665,37 @@ export function dismissInbox(item) {
       return () => setState({ inbox: prev });
     },
   }).catch(() => {});
+}
+
+/* ---------------- peer review ---------------- */
+
+export const OPEN_REVIEW = ['SUBMITTED', 'IN_REVIEW', 'REWORK'];
+
+export function mergeReview(r) {
+  if (!r) return;
+  setState((s) => {
+    const reviews = s.reviews.filter((x) => x.review_id !== r.review_id);
+    if (OPEN_REVIEW.includes(r.status)) reviews.unshift(r);
+    const d = s.details.project[r.project_id];
+    if (!d) return { reviews };
+    const list = (d.reviews || []).filter((x) => x.review_id !== r.review_id);
+    return { reviews, details: { ...s.details, project: { ...s.details.project, [r.project_id]: { ...d, reviews: [r, ...list] } } } };
+  });
+}
+
+/** Pull the open queue fresh (teammates claim and resubmit from their own screens). */
+export async function refreshReviews() {
+  try { setState({ reviews: await api('getPeerReviews', {}) }); } catch (e) { /* keep what we have */ }
+}
+
+/** Every review step returns { review, project, tasks }; the project detail reloads to pick up notes + stage history. */
+export async function peerReviewAction(action, payload, what) {
+  const res = await mutate({ label: 'peer review', what, action, payload });
+  mergeReview(res.review);
+  if (res.project) mergeProject(res.project);
+  mergeTasks(res.tasks);
+  if (res.review && state.details.project[res.review.project_id]) loadProject(res.review.project_id, true);
+  return res;
 }
 
 export { api };

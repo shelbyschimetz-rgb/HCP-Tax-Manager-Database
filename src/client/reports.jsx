@@ -4,6 +4,7 @@ import { Icon, Avatar, Person, Pill } from './ui.jsx';
 import { useStore, api, mutate, toast, refreshAll } from './store.js';
 import { openRecord } from './nav.js';
 import { label, toCSV, downloadCSV, fmtTsShort, fmtMinutes, relTime, today } from './util.js';
+import { PeerReviewReport } from './review.jsx';
 
 const REPORTS = [
   { id: 'pipeline', label: 'Pipeline snapshot', icon: 'briefcase' },
@@ -12,6 +13,7 @@ const REPORTS = [
   { id: 'balance', label: 'Advisor load balance', icon: 'users' },
   { id: 'time', label: 'Logged time', icon: 'clock' },
   { id: 'risk', label: 'At-risk pros', icon: 'alert' },
+  { id: 'peer', label: 'Peer review', icon: 'eye' },
 ];
 
 function Bar({ value, max, width = 260 }) {
@@ -208,6 +210,8 @@ export function Reports() {
         </div>
       )}
 
+      {data && report === 'peer' && data.peer && <PeerReviewReport data={data.peer} name={name} />}
+
       {data && report === 'risk' && (
         <div className="det-card">
           <div className="det-card-head">
@@ -246,6 +250,7 @@ export function Settings() {
   const [err, setErr] = React.useState('');
   const [busy, setBusy] = React.useState('');
   const [syncResult, setSyncResult] = React.useState(null);
+  const [cleanup, setCleanup] = React.useState(null);
   React.useEffect(() => {
     api('getSettings').then((d) => { setS(d); setF({ sfdc_sheet_id: d.sfdc_sheet_id, sfdc_tab: d.sfdc_tab, drive_parent_id: d.drive_parent_id, email_domain: d.email_domain, timer_max_hours: d.timer_max_hours, export_sheet_id: (d.export && d.export.sheet_id) || '' }); })
       .catch((e) => setErr(e.message));
@@ -278,6 +283,20 @@ export function Settings() {
     } catch (e) { /* toast */ }
     setBusy('');
   }
+  async function findOld() {
+    setBusy('find');
+    try { setCleanup({ plan: await api('sfdcCleanupPreview') }); } catch (e) { toast('error', e.message); }
+    setBusy('');
+  }
+  async function removeOld() {
+    setBusy('clean');
+    try {
+      const r = await mutate({ label: 'Inbox cleanup', what: 'Inbox cleanup', action: 'sfdcCleanup', payload: {} });
+      setCleanup({ done: r });
+      refreshAll();
+    } catch (e) { /* toast */ }
+    setBusy('');
+  }
   if (err) return <div className="flash error"><Icon name="alert" size={14} /> {err}</div>;
   if (!s) return <div className="muted" style={{ padding: 24 }}>Loading settings…</div>;
   const last = syncResult || s.sfdc_last_result;
@@ -295,7 +314,7 @@ export function Settings() {
       <div className="tm-settings-grid">
         <div className="det-card" style={{ padding: 20 }}>
           <h3 className="tm-h3">Salesforce onboarding feed</h3>
-          <p className="muted small">The "New Tax Onboarding Cases" sheet. Every 4 hours, rows with Case Record Type = Tax Onboarding and a new Org ID create a pro + Inbox item.</p>
+          <p className="muted small">The "New Tax Onboarding Cases" sheet. Every 4 hours, rows with Case Record Type = Tax Onboarding, a Created Date in {s.sfdc_first_year || 'this year'} or later, and a new Org ID create a pro + Inbox item. Older cases are skipped.</p>
           <div className="wiz-field"><label className="lbl">Source sheet URL or ID</label><input className="tm-input" value={f.sfdc_sheet_id || ''} onChange={set('sfdc_sheet_id')} placeholder="https://docs.google.com/spreadsheets/d/…" /></div>
           <div className="wiz-field"><label className="lbl">Tab name (blank = first tab)</label><input className="tm-input" value={f.sfdc_tab || ''} onChange={set('sfdc_tab')} /></div>
           <div className="wiz-field"><label className="lbl">Email domain for the Case Owner resolver</label><input className="tm-input" value={f.email_domain || ''} onChange={set('email_domain')} /><span className="hint">"Angel Julia Marcos" → angel.marcos@{f.email_domain || 'housecallpro.com'} — must be on the Identity roster, else the pro is flagged for manual OS assignment.</span></div>
@@ -303,7 +322,27 @@ export function Settings() {
             <button className="btn" disabled={!!busy || !s.sfdc_sheet_id} onClick={syncNow}><Icon name="refresh" size={13} /> {busy === 'sync' ? 'Syncing…' : 'Sync now'}</button>
             <span className="muted small">{s.sfdc_last_sync ? 'Last sync ' + relTime(s.sfdc_last_sync) : 'Never synced'}</span>
           </div>
-          {last && <div className="wb-note" style={{ marginTop: 10 }}>Last run: {last.scanned} rows · {last.created} new pros · {last.existing} already existed · {last.skipped_type} other record types · {last.flagged_os} need an OS.</div>}
+          {last && <div className="wb-note" style={{ marginTop: 10 }}>Last run: {last.scanned} rows · {last.created} new pros · {last.existing} already existed{last.skipped_old != null ? ' · ' + last.skipped_old + ' created before ' + String(last.cutoff || '').slice(0, 4) : ''} · {last.skipped_type} other record types · {last.flagged_os} need an OS.</div>}
+          <div style={{ borderTop: '1px solid var(--border-light)', marginTop: 14, paddingTop: 12 }}>
+            <div style={{ fontWeight: 600, fontSize: 13 }}>Clear out old cases</div>
+            <p className="muted small" style={{ margin: '4px 0 8px' }}>Removes unclaimed Inbox cases created before {s.sfdc_first_year || 'this year'}. Pros nobody has worked on are deleted along with their empty Drive folder; pros with any work stay and just leave the Inbox.</p>
+            {!cleanup && <button className="btn" disabled={!!busy} onClick={findOld}><Icon name="search" size={13} /> {busy === 'find' ? 'Checking…' : 'Find old cases'}</button>}
+            {cleanup && cleanup.plan && (
+              <div className="wb-note" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8 }}>
+                <div><strong>{cleanup.plan.remove.length}</strong> untouched pro{cleanup.plan.remove.length === 1 ? '' : 's'} to remove · <strong>{cleanup.plan.keep.length}</strong> with work to keep (they only leave the Inbox).</div>
+                {cleanup.plan.keep.length > 0 && <div className="small muted">Keeping: {cleanup.plan.keep.slice(0, 8).map((k) => k.business_name + ' (' + k.reason + ')').join(', ')}{cleanup.plan.keep.length > 8 ? ', …' : ''}</div>}
+                {cleanup.plan.remove.length + cleanup.plan.keep.length > 0 ? (
+                  <div style={{ display: 'flex', gap: 8 }}>
+                    <button className="btn danger" disabled={!!busy} onClick={removeOld}>{busy === 'clean' ? 'Cleaning up…' : 'Clean up ' + (cleanup.plan.remove.length + cleanup.plan.keep.length) + ' cases'}</button>
+                    <button className="btn" disabled={!!busy} onClick={() => setCleanup(null)}>Cancel</button>
+                  </div>
+                ) : <div className="small">Nothing to clean up. <a style={{ cursor: 'pointer' }} onClick={() => setCleanup(null)}>Close</a></div>}
+              </div>
+            )}
+            {cleanup && cleanup.done && (
+              <div className="wb-note">Removed {cleanup.done.pros_removed} pros and {cleanup.done.folders_trashed} empty Drive folders (in Drive's trash for 30 days). {cleanup.done.dismissed} pros with work left the Inbox.{cleanup.done.deferred ? ' ' + cleanup.done.deferred + ' more still to do: click Find old cases again.' : ''}</div>
+            )}
+          </div>
         </div>
         <div className="det-card" style={{ padding: 20 }}>
           <h3 className="tm-h3">Drive</h3>
@@ -324,7 +363,7 @@ export function Settings() {
       <div className="det-card" style={{ padding: 20, marginTop: 16 }}>
         <h3 className="tm-h3">Daily reports sheet</h3>
         <p className="muted small">
-          Every morning (~6am) Tax Manager refreshes a Google Sheet with every pro, every tax return, and all six reports, plus a
+          Every morning (~6am) Tax Manager refreshes a Google Sheet with every pro, every tax return, every peer review, and all the reports, plus a
           <strong> Pipeline history</strong> tab that adds one row per stage per day for trend charts. Share it like any sheet; edits there are overwritten on the next refresh.
         </p>
         {s.export && s.export.url

@@ -29,6 +29,7 @@ var Db = (function () {
     var id = getProp_(PROP.DB_ID);
     if (!id) throw new AppError('Tax Manager is not set up yet. Run setup() from the Apps Script editor.', 'NOT_SETUP');
     ssCache = SpreadsheetApp.openById(id);
+    Setup.upgradeIfNeeded(ssCache); // new tabs / columns after a code update, no setup() re-run needed
     return ssCache;
   }
 
@@ -218,11 +219,38 @@ var Db = (function () {
     return true;
   }
 
+  /**
+   * Delete many rows at once by rewriting the tab below the header (one
+   * read + one write instead of a deleteRow() call per row). Cells are copied
+   * as-is, so hand-added columns survive.
+   */
+  function removeMany(table, keys) {
+    if (!keys || !keys.length) return 0;
+    var t = load(table);
+    var drop = {};
+    keys.forEach(function (k) { drop[String(k)] = true; });
+    var keyCol = t.colIdx[SCHEMA[table].key];
+    var values = t.sh.getDataRange().getValues();
+    var keep = [];
+    var removed = 0;
+    for (var r = 1; r < values.length; r++) {
+      if (drop[String(values[r][keyCol])]) removed++;
+      else keep.push(values[r]);
+    }
+    if (removed) {
+      var width = values[0].length;
+      t.sh.getRange(2, 1, values.length - 1, width).clearContent();
+      if (keep.length) t.sh.getRange(2, 1, keep.length, width).setNumberFormat('@').setValues(keep);
+    }
+    delete cache[table];
+    return removed;
+  }
+
   function clearCache() { cache = {}; ssCache = null; }
 
   return {
     spreadsheet: spreadsheet, list: list, get: get, where: where, insert: insert,
-    insertMany: insertMany, update: update, remove: remove, clearCache: clearCache,
+    insertMany: insertMany, update: update, remove: remove, removeMany: removeMany, clearCache: clearCache,
     _fromCell: fromCell,
   };
 })();
@@ -249,6 +277,14 @@ function addDays_(iso, days) {
   if (isNaN(d.getTime())) return '';
   d.setUTCDate(d.getUTCDate() + Number(days || 0));
   return d.toISOString().slice(0, 10);
+}
+
+function hoursBetween_(fromIso, toIso) {
+  if (!fromIso || !toIso) return null;
+  var a = new Date(fromIso).getTime();
+  var b = new Date(toIso).getTime();
+  if (isNaN(a) || isNaN(b)) return null;
+  return Math.round(((b - a) / 3600000) * 10) / 10;
 }
 
 function daysBetween_(fromIso, toIso) {

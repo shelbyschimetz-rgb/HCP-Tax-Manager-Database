@@ -253,14 +253,14 @@ footer { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--line);
       <h1>Working in Tax Manager</h1>
       <p class="lede">How onboarding specialists, tax advisors, tax preparers, peer reviewers and managers move a pro from a closed-won Salesforce case to an e-filed return, all in one shared system.</p>
       <div class="meta">
-        <span><b>Version</b> 1.0</span>
+        <span><b>Version</b> 1.1</span>
         <span><b>Effective</b> September 2026</span>
         <span><b>Replaces</b> the HCP Tax Pros and HCP Tax Returns projects in Asana</span>
       </div>
       <div class="roles">
         <a class="role-card r-os" href="#os"><span class="who">Onboarding Specialist</span><span class="what">Claims new cases from the Inbox, runs the onboarding wizard, sets up the Drive folder and hands off to the advisor.</span><span class="go">Your playbook →</span></a>
         <a class="role-card r-adv" href="#advisor"><span class="who">Tax Advisor</span><span class="what">Owns the pro relationship and the return schedule: kickoff, extensions, client review, and at-risk flags.</span><span class="go">Your playbook →</span></a>
-        <a class="role-card r-prep" href="#preparer"><span class="who">Tax Preparer</span><span class="what">Builds the return, logs time, tracks what's missing, and e-files once the return is approved. Peer reviewers work from this section too.</span><span class="go">Your playbook →</span></a>
+        <a class="role-card r-prep" href="#preparer"><span class="who">Tax Preparer</span><span class="what">Builds the return, logs time, tracks what's missing, sends it to peer review, and e-files once it's approved. Peer reviewers work from this section too.</span><span class="go">Your playbook →</span></a>
         <a class="role-card r-mgr" href="#manager"><span class="who">Manager</span><span class="what">Watches the pipeline and team load, keeps the roster and templates current, and clears escalations.</span><span class="go">Your playbook →</span></a>
       </div>
     </header>
@@ -329,7 +329,7 @@ footer { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--line);
           <tr><td><span class="role r-os">OS</span></td><td>Pro › Onboarding specialist, and each project's OS field</td><td>Onboarding &amp; Setup: Drive folder, welcome email, intake call, organizer, 8821</td></tr>
           <tr><td><span class="role r-adv">Advisor</span></td><td>Pro › Tax advisor, and each project's Tax advisor field</td><td>Return prep kickoff, advisory work, extension decisions, client review</td></tr>
           <tr><td><span class="role r-prep">Preparer</span></td><td>Project › Tax preparer</td><td>Document review, return preparation, applying peer-review changes, e-file and IRS acceptance</td></tr>
-          <tr><td><span class="role r-peer">Peer reviewer</span></td><td>Project › Peer reviewer</td><td>Peer Review Verification, a 10-point checklist</td></tr>
+          <tr><td><span class="role r-peer">Peer reviewer</span></td><td>Project › Peer reviewer, or set by claiming a review</td><td>Peer Review Verification, a 10-point checklist, when a return is submitted to them or they claim it</td></tr>
           <tr><td><span class="role r-bk">BK lead</span></td><td>Pro › BK lead</td><td>Doc-request follow-up, the doc collection call, signed 8879, delivering signed copies</td></tr>
           <tr><td><span class="role r-mgr">Exec / Admin</span></td><td>Identity roster</td><td>No template tasks. Can also open Settings, edit templates and import data.</td></tr>
         </tbody>
@@ -373,9 +373,9 @@ footer { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--line);
           <tr><td><span class="stage st-queue">In queue</span></td><td>The return exists but work hasn't started.</td><td>You've kicked off document collection with the pro.</td><td><span class="role r-adv">Advisor</span></td></tr>
           <tr><td><span class="stage st-esc">In queue (escalated)</span></td><td>A queued return that's aging or needs a decision.</td><td>The manager has resolved it. <span class="ui">Advance stage</span> goes to Doc gathering.</td><td><span class="role r-mgr">Manager</span></td></tr>
           <tr><td><span class="stage st-doc">Doc gathering</span></td><td>Collecting documents and confirming the books.</td><td>The preparer has checked the documents for quality and completeness.</td><td><span class="role r-prep">Preparer</span></td></tr>
-          <tr><td><span class="stage st-prep">Prep</span></td><td>The return is being built.</td><td>The preparer has self-reviewed. If items are outstanding, move to <em>Waiting for pro</em>; if not, pick <em>QA</em>.</td><td><span class="role r-prep">Preparer</span></td></tr>
-          <tr><td><span class="stage st-wfp">Waiting for pro</span></td><td>Prep is paused on something only the pro can provide.</td><td>Every outstanding item is marked received. Move back to <em>Prep</em>, or on to <em>QA</em> if prep is finished.</td><td><span class="role r-prep">Preparer</span></td></tr>
-          <tr><td><span class="stage st-qa">QA</span></td><td>Peer review.</td><td>The checklist is verified and the preparer has applied the changes.</td><td><span class="role r-prep">Preparer</span></td></tr>
+          <tr><td><span class="stage st-prep">Prep</span></td><td>The return is being built.</td><td>The preparer submits it for peer review, which moves it to QA. If items are still outstanding, move it to <em>Waiting for pro</em> first.</td><td><span class="role r-prep">Preparer</span></td></tr>
+          <tr><td><span class="stage st-wfp">Waiting for pro</span></td><td>Prep is paused on something only the pro can provide.</td><td>Every outstanding item is marked received. Move back to <em>Prep</em>, or submit for peer review if prep is finished.</td><td><span class="role r-prep">Preparer</span></td></tr>
+          <tr><td><span class="stage st-qa">QA</span></td><td>Peer review. Submitting a return for peer review moves it here automatically.</td><td>The reviewer clicks <span class="ui">Review complete</span>, which can move the return to Client review for them.</td><td><span class="role r-peer">Peer reviewer</span></td></tr>
           <tr><td><span class="stage st-cr">Client review</span></td><td>The draft is with the pro: review call and signed 8879.</td><td>The signed 8879 is on file.</td><td><span class="role r-adv">Advisor</span></td></tr>
           <tr><td><span class="stage st-fd">Filing &amp; delivery</span></td><td>E-file, IRS acceptance, signed copies to Drive.</td><td>The IRS has accepted the return and signed copies are in the Drive folder.</td><td><span class="role r-prep">Preparer</span></td></tr>
           <tr><td><span class="stage st-done">Complete</span></td><td>Filed and delivered. Counts toward on-time reporting.</td><td>This is the final stage.</td><td>—</td></tr>
@@ -386,7 +386,7 @@ footer { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--line);
       <h3>Three ways to change a stage</h3>
       <ul>
         <li><b><span class="ui">Advance stage</span></b> (blue button on the project): moves one step along the fixed order above.</li>
-        <li><b>Click the stage pill</b> next to the project ID and pick any stage. Use this to skip a stage, for example Prep straight to QA when nothing is outstanding.</li>
+        <li><b>Click the stage pill</b> next to the project ID and pick any stage. Use this to skip a stage, for example In queue straight to Prep when the documents are already in.</li>
         <li><b>Drag the card on the Board</b> (Projects › Board) to another column.</li>
       </ul>
       <div class="note warn"><span class="lbl">Two stages ask a question first</span>
@@ -403,7 +403,7 @@ footer { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--line);
 
       <h3>Daily loop</h3>
       <ol class="steps">
-        <li><b>Open <span class="ui">Inbox</span>.</b> New Salesforce onboarding cases arrive every 4 hours. The pill at the top shows when the last sync ran. Each card shows the Org ID, case number, case owner and days in onboarding. A pro record has already been created for each one.</li>
+        <li><b>Open <span class="ui">Inbox</span>.</b> New Salesforce onboarding cases arrive every 4 hours. Only cases created this calendar year come in; older ones are skipped. The pill at the top shows when the last sync ran. Each card shows the Org ID, case number, case owner and days in onboarding. A pro record has already been created for each one.</li>
         <li><b>Claim your cases.</b> Click <span class="ui">Claim &amp; start onboarding</span> on each case that's yours. Claiming:
           <ul>
             <li>makes you the pro's OS, if nobody is assigned yet;</li>
@@ -519,7 +519,7 @@ footer { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--line);
 
       <h3>Daily loop</h3>
       <ol class="steps">
-        <li><b>Open <span class="ui">My Tasks</span></b> and pick the return with the nearest due date. You'll see your prep, peer-review fixes, e-file and acceptance tasks here.</li>
+        <li><b>Open <span class="ui">My Tasks</span></b> and pick the return with the nearest due date. You'll see your prep, peer-review rework, e-file and acceptance tasks here. <span class="ui">Peer Review</span> in the sidebar shows every return you've sent to review.</li>
         <li><b>Click <span class="ui">Start timer</span> on the project</b> before you start working it. The running timer shows in the top bar on every screen; click it to stop and log the time.</li>
         <li><b>Work the Tax Return Preparation tasks in order</b> and check each one off as you finish it. <em>Complete Income/Deduction Info</em> has three subtasks, and it checks itself when they're all done.</li>
         <li><b>When you need something from the pro,</b> add it under <span class="ui">Outstanding items</span> (below) and move the project to <span class="stage st-wfp">Waiting for pro</span>.</li>
@@ -539,16 +539,31 @@ footer { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--line);
         <li><b>Project › <span class="ui">Outstanding items</span> › <span class="ui">Add item</span>.</b> Describe it the way you'd ask the pro, pick an owner (usually the advisor or BK lead who'll follow up) and a due date. Press <span class="kbd">Enter</span>.</li>
         <li><b>Move the project to <span class="stage st-wfp">Waiting for pro</span></b> if prep can't continue.</li>
         <li><b>Check the item off when it arrives</b> (the circle marks it received). Resolved items are hidden; <span class="ui">Show resolved</span> brings them back.</li>
-        <li><b>Once nothing is open,</b> move the project back to <span class="stage st-prep">Prep</span>, or on to <span class="stage st-qa">QA</span> if prep is finished.</li>
+        <li><b>Once nothing is open,</b> move the project back to <span class="stage st-prep">Prep</span>, or submit it for peer review if prep is finished.</li>
       </ol>
 
       <h3>Sending to peer review and back</h3>
+      <p>Peer review now happens in Tax Manager instead of the Slack workflow. Everything the Slack form asked for is on the project's <span class="ui">Peer review</span> tab.</p>
       <ol class="steps">
-        <li><b>Check off <em>Self-review and submit for peer review</em></b>, then set the stage to <span class="stage st-qa">QA</span> by clicking the stage pill. From Prep, <span class="ui">Advance stage</span> would go to Waiting for pro instead.</li>
-        <li><b>Wait for <em>Peer Review Verification</em> to be checked.</b> Until then, <em>Apply peer-review changes</em> shows “blocked”.</li>
-        <li><b>Apply the reviewer's changes</b> from their notes on the project, then check off <em>Apply peer-review changes</em>.</li>
-        <li><b>Tell the advisor it's ready for the client.</b> They move it to <span class="stage st-cr">Client review</span>.</li>
+        <li><b>Open the project's <span class="ui">Peer review</span> tab and click <span class="ui">Submit for peer review</span></b> (also in the project's <span class="ui">…</span> menu). Org ID, company name, return year and return type fill in from the project. Enter:
+          <ul>
+            <li><b>Estimated safe harbor tax payment amount.</b></li>
+            <li><b>Return add-ons.</b> Pick every one that applies, or <em>No add-ons</em>. Only pick Additional K-1s for more than 4 partners. For Additional State(s), list the states in Comments.</li>
+            <li><b>Assigned tax advisor</b>, filled in from the project.</li>
+            <li><b>Reviewer</b>, filled in if the project already has a peer reviewer. Leave it blank to post the return to the queue for any reviewer to claim.</li>
+            <li><b>Comments</b>: anything the reviewer needs to know, such as transcripts used or open questions.</li>
+          </ul>
+          You're recorded as the person submitting. Submitting moves the return to <span class="stage st-qa">QA</span>, checks off <em>Self-review and submit for peer review</em>, gives the reviewer a task due in 2 days, and posts a note on the project.</li>
+        <li><b>If the reviewer sends it back,</b> you get an <em>Apply peer-review changes</em> task due in 2 days, and their notes show in an orange <em>Needs rework</em> box on the Peer review tab. Fix the return.</li>
+        <li><b>Click <span class="ui">Resubmit</span></b> and say what you changed. The same reviewer gets it back as the next round, and your rework task checks itself off.</li>
+        <li><b>When the reviewer marks it complete,</b> the return usually moves to <span class="stage st-cr">Client review</span> on its own. Tell the advisor it's ready for the client.</li>
       </ol>
+      <div class="note"><span class="lbl">Good to know</span>
+        <ul>
+          <li>A return can have only one open review at a time.</li>
+          <li>You can't review a return you submitted.</li>
+          <li>If you submitted by mistake, use <span class="ui">Cancel review</span> and give a reason. You can submit again later.</li>
+        </ul></div>
 
       <h3>Filing</h3>
       <ol class="steps">
@@ -559,9 +574,11 @@ footer { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--line);
       </ol>
 
       <h3 id="peer">Peer review <span class="role r-peer">Peer reviewer</span></h3>
+      <p>Claiming a review needs the Peer Reviewer role on the team roster. Everyone else can see the queue but not claim from it.</p>
       <ol class="steps">
-        <li><b>Find your queue.</b> The sidebar's Starred › <span class="ui">Pending peer review</span> lists every project in QA. Your own reviews are also in My Tasks as <em>Peer Review Verification</em>.</li>
-        <li><b>Open the task and click its row</b> to expand the checklist:
+        <li><b>Open <span class="ui">Peer Review</span> in the sidebar.</b> The number next to it counts returns waiting for any reviewer, plus reviews that are waiting on you. The tabs are <em>Waiting for reviewer</em>, <em>In review</em>, <em>Needs rework</em> and <em>Completed</em>. Tick <span class="ui">Only mine</span> to narrow the list.</li>
+        <li><b>Click <span class="ui">Claim</span></b> on a waiting return. This works like the Slack CLAIM button. You become the project's peer reviewer, and <em>Peer Review Verification</em> lands in your My Tasks. Returns submitted straight to you are already on your task list, but still need a claim.</li>
+        <li><b>Open the return.</b> The Peer review tab shows everything the preparer submitted and the 10-item checklist:
           <ul>
             <li>Taxpayer name + SSN verified</li>
             <li>Spouse name + SSN verified</li>
@@ -573,10 +590,12 @@ footer { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--line);
             <li>State filings included where required</li>
             <li>Estimated payments accounted for</li>
             <li>Return PDF previewed for legibility</li>
-          </ul></li>
-        <li><b>Tick each item as you verify it.</b> For anything that needs a fix, post a note on the project that names the form and line.</li>
-        <li><b>Check off <em>Peer Review Verification</em></b> once all 10 items are verified. That unblocks the preparer's <em>Apply peer-review changes</em>.</li>
+          </ul>
+          Tick each item as you verify it.</li>
+        <li><b>If something needs fixing, click <span class="ui">Needs rework</span></b> and say exactly what to fix: form, line, and what's wrong. The preparer gets a task and your notes, and the notes also go on the project's Notes tab. When they resubmit, the return comes back to you as the next round.</li>
+        <li><b>When it's right, click <span class="ui">Review complete</span></b>. This replaces the Slack REVIEW COMPLETE button. Add optional notes for the preparer. Leave <em>Move the return to Client review</em> ticked unless the advisor wants to hold it. Your task checks itself off.</li>
       </ol>
+      <p>If you can't finish a review you claimed, click <span class="ui">Release to queue</span> so another reviewer can take it.</p>
 
       <h4>Your part is done when</h4>
       <div class="done-def">
@@ -599,9 +618,10 @@ footer { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--line);
         <li><b>At-risk pros</b> (Home tile or Starred link). Every one should have a current reason and a recent touchpoint.</li>
         <li><b>Reports › Active pros per advisor.</b> Check the load is even and the right people are accepting new pros.</li>
         <li><b>Inbox.</b> Claim or reassign any case that has sat unclaimed for more than a day.</li>
+        <li><b>Peer Review.</b> Nothing should sit in <em>Waiting for reviewer</em> for more than a day, and nothing should sit in <em>Needs rework</em> past its task due date.</li>
       </ol>
 
-      <h3>The six reports</h3>
+      <h3>The seven reports</h3>
       <div class="tbl-wrap"><table>
         <thead><tr><th>Report</th><th>Use it to</th></tr></thead>
         <tbody>
@@ -611,9 +631,10 @@ footer { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--line);
           <tr><td class="key">Active pros per advisor</td><td>Check load balance. The advisor who gets the next new pro is highlighted.</td></tr>
           <tr><td class="key">Logged time</td><td>See timer hours across all projects. Look for auto-stopped entries to correct.</td></tr>
           <tr><td class="key">At-risk pros</td><td>Run the at-risk review, with reasons and last touchpoints.</td></tr>
+          <tr><td class="key">Peer review</td><td>See the review queue right now, then two breakouts. <em>By reviewer</em> shows reviews done, time to claim, review time and how often they send returns back. <em>By preparer</em> shows how often each preparer's returns come back and how many rounds they take to pass. Below that is a log of every review, which replaces the Slack thread history.</td></tr>
         </tbody>
       </table></div>
-      <p>Each report has an Export CSV button. The same data also lands every morning (about 6am) in the <b>Tax Manager Reports</b> Google Sheet. Its tabs are About, Pros, Tax Returns, one tab per report, and <em>Pipeline history</em>, which adds one row per stage each day so you can chart trends. Share that sheet, not the database. Edits made in it are overwritten at the next refresh.</p>
+      <p>Each report has an Export CSV button. The same data also lands every morning (about 6am) in the <b>Tax Manager Reports</b> Google Sheet. Its tabs are About, Pros, Tax Returns, one tab per report, <em>Peer reviews</em> (every review, with all the form fields), <em>Peer review summary</em>, and <em>Pipeline history</em>, which adds one row per stage each day so you can chart trends. Share that sheet, not the database. Edits made in it are overwritten at the next refresh.</p>
 
       <h3>Adding, changing and removing people</h3>
       <p>The team list is the <b>Identity</b> tab in the <em>Tax Manager DB</em> spreadsheet (Settings has the link). It's the only tab anyone should edit by hand.</p>
@@ -632,7 +653,8 @@ footer { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--line);
 
       <h3>Settings (Exec / Admin)</h3>
       <ul>
-        <li><b>Salesforce sheet:</b> the “New Tax Onboarding Cases” sheet that feeds the Inbox. <span class="ui">Sync now</span> pulls it immediately instead of waiting up to 4 hours.</li>
+        <li><b>Salesforce sheet:</b> the “New Tax Onboarding Cases” sheet that feeds the Inbox. Only cases created this calendar year come in; the cutoff moves forward every January 1. <span class="ui">Sync now</span> pulls it immediately instead of waiting up to 4 hours.</li>
+        <li><b>Clear out old cases:</b> <span class="ui">Find old cases</span> lists unclaimed Inbox cases from before this year. <span class="ui">Clean up</span> deletes the pros nobody has worked on, and moves their empty Drive folders to the trash, where they stay for 30 days. Pros with any work stay, and only leave the Inbox.</li>
         <li><b>Client data folder:</b> the shared Drive folder where each pro's <code>-TAX</code> folder is created.</li>
         <li><b>Timer max hours:</b> when running timers stop on their own (default 8).</li>
         <li><b>Daily reports sheet:</b> <span class="ui">Export now</span> rebuilds the sheet on demand.</li>
@@ -701,7 +723,10 @@ footer { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--line);
           <tr><td class="key">“Sync failed — click to retry”</td><td>Your last change didn't save and the old value is back on screen.</td><td>Click the pill. If it fails again, reload the page and redo the change.</td></tr>
           <tr><td class="key">“… was changed by someone else. Refresh to see the latest”</td><td>A teammate edited the same record after you loaded it.</td><td>Click the refresh arrow, check their change, then make yours again.</td></tr>
           <tr><td class="key">“Tax Manager is busy saving someone else's change”</td><td>Several saves arrived at once.</td><td>Wait a few seconds and try again.</td></tr>
-          <tr><td class="key">A new case isn't in the Inbox</td><td>Salesforce syncs every 4 hours.</td><td>Ask a manager to click Settings › Sync now.</td></tr>
+          <tr><td class="key">A new case isn't in the Inbox</td><td>Salesforce syncs every 4 hours, and only takes cases created this calendar year.</td><td>Check the case's Created Date in Salesforce, then ask a manager to click Settings › Sync now.</td></tr>
+          <tr><td class="key">“Only peer reviewers can claim reviews”</td><td>Your roles don't include Peer Reviewer.</td><td>Ask your manager to add <code>PEER_REVIEWER</code> to your roles.</td></tr>
+          <tr><td class="key">“You submitted this return, so someone else has to review it”</td><td>Nobody reviews their own return.</td><td>Leave it for another reviewer.</td></tr>
+          <tr><td class="key">“This return already has an open peer review”</td><td>A review is already waiting, in review, or in rework.</td><td>Open the Peer review tab to see where it is. Cancel it first if it was sent by mistake.</td></tr>
           <tr><td class="key">A task has no due date</td><td>Its anchor date isn't set yet, usually the e-file date.</td><td>Set the date on the project Overview, or give the task a date by hand.</td></tr>
           <tr><td class="key">Tasks show a role but no person</td><td>Nobody is set in that role on the pro or project.</td><td>Set the person on the Overview tab. Unassigned open tasks for that role fill in.</td></tr>
           <tr><td class="key">“Set the parent Drive folder … in Settings first”</td><td>The shared client folder isn't configured.</td><td>Ask a manager to add it in Settings.</td></tr>
@@ -757,8 +782,8 @@ footer { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--line);
           <tr><td class="num">start + 33</td><td>Enter/Confirm fixed assets + depreciation schedule</td><td><span class="role r-prep">Preparer</span></td></tr>
           <tr><td class="num">start + 35</td><td>Self-review and submit for peer review</td><td><span class="role r-prep">Preparer</span></td></tr>
           <tr class="group"><td colspan="3">Internal Review / QC</td></tr>
-          <tr><td class="num">start + 40</td><td>Peer Review Verification <span class="sub">10-item checklist</span></td><td><span class="role r-peer">Peer</span></td></tr>
-          <tr><td class="num">start + 42</td><td>Apply peer-review changes <span class="sub">waits on peer review</span></td><td><span class="role r-prep">Preparer</span></td></tr>
+          <tr><td class="num">start + 40</td><td>Peer Review Verification <span class="sub">10-item checklist · re-dated to 2 days after submission</span></td><td><span class="role r-peer">Peer</span></td></tr>
+          <tr><td class="num">start + 42</td><td>Apply peer-review changes <span class="sub">assigned to the submitter on rework; skipped if the review passes first time</span></td><td><span class="role r-prep">Preparer</span></td></tr>
           <tr class="group"><td colspan="3">Client Review</td></tr>
           <tr><td class="num">start + 45</td><td>Send draft return to pro for review</td><td><span class="role r-adv">Advisor</span></td></tr>
           <tr><td class="num">start + 47</td><td>Host client review call</td><td><span class="role r-adv">Advisor</span></td></tr>
@@ -788,6 +813,8 @@ footer { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--line);
         <dt>Form 8879</dt><dd>IRS e-file Signature Authorization. The pro signs it before we e-file.</dd>
         <dt>WFP</dt><dd>Waiting for pro, the pipeline stage for returns paused on the pro.</dd>
         <dt>QA</dt><dd>The peer review stage.</dd>
+        <dt>Round</dt><dd>One pass of a peer review. Each resubmission after rework starts the next round.</dd>
+        <dt>Safe harbor</dt><dd>The estimated tax payment that avoids an underpayment penalty for the coming year. It's entered on every peer review.</dd>
         <dt>Anchor</dt><dd>The date a template task's due date is counted from: the claim date, project start, filing deadline or e-file date.</dd>
         <dt>Materialize</dt><dd>Copying the template task list onto a new pro or project.</dd>
         <dt>SFDC</dt><dd>Salesforce. New tax onboarding cases come from its “New Tax Onboarding Cases” report.</dd>
@@ -795,7 +822,7 @@ footer { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--line);
     </section>
 
     <footer>
-      Tax Manager Frontline SOP · v1.0 · September 2026. Send changes to your Tax Ops manager. When the app and this document disagree, the Templates and Settings screens are current; update this page to match.
+      Tax Manager Frontline SOP · v1.1 · September 2026. v1.1: peer review moved from Slack into Tax Manager; Salesforce sync limited to the current year. Send changes to your Tax Ops manager. When the app and this document disagree, the Templates and Settings screens are current; update this page to match.
     </footer>
   </main>
 </div>

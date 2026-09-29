@@ -9,7 +9,7 @@
     "dev": "node build.mjs --dev && node dev/server.mjs",
     "dev:reseed": "node build.mjs --dev && node dev/server.mjs --reseed",
     "test": "node tests/run.mjs && node tests/client.mjs && node build.mjs && node tests/build-check.mjs",
-    "test:e2e": "node tests/e2e/flow.mjs && node tests/e2e/conflict.mjs",
+    "test:e2e": "node tests/e2e/flow.mjs && node tests/e2e/conflict.mjs && node tests/e2e/peer-review.mjs",
     "push": "node build.mjs && clasp push --force",
     "deploy": "node scripts/deploy.mjs",
     "paste": "node scripts/paste-bundle.mjs"

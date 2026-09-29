@@ -150,6 +150,23 @@ var Exports = (function () {
     counts['At-risk pros'] = writeTab(ss, 'At-risk pros', ['Org ID', 'Business', 'Reason', 'Advisor', 'Last advisor touchpoint'],
       r.risk.map(function (x) { return [x.org_id, x.business_name, x.at_risk_reason, who(x.assigned_advisor_email), x.last_advisor_touchpoint]; }));
 
+    var st = function (v) { return label_('PEER_REVIEW_STATUS', v); };
+    counts['Peer reviews'] = writeTab(ss, 'Peer reviews', [
+      'Review ID', 'Project ID', 'Org ID', 'Business', 'Tax year', 'Return type', 'Status', 'Submitted by', 'Tax advisor', 'Reviewer',
+      'Submitted', 'Claimed', 'Completed', 'Hours to claim', 'Review days', 'Total days', 'Rounds', 'Times sent back',
+      'Safe harbor estimate', 'Add-ons', 'Comments', 'Last rework notes', 'Completion notes', 'Cancel reason',
+    ], r.peer.log.map(function (x) {
+      return [x.review_id, x.project_id, x.org_id, x.business_name, x.tax_year, label_('FILING_TYPE', x.filing_type), st(x.status),
+        who(x.submitted_by), who(x.advisor_email), who(x.reviewer_email), x.submitted_at, x.claimed_at, x.completed_at,
+        x.hours_to_claim, x.review_days, x.total_days, x.rounds, x.rework_count, x.safe_harbor_amount, x.add_ons,
+        x.comments, x.last_rework_notes, x.completion_notes, x.cancel_reason];
+    }));
+    counts['Peer review summary'] = writeTab(ss, 'Peer review summary',
+      ['Reviewer', 'Email', 'Reviews', 'Completed', 'Open', 'Sent back for rework', 'Rework rate %', 'Avg hours to claim', 'Avg review days'],
+      r.peer.reviewers.map(function (x) {
+        return [who(x.reviewer_email), x.reviewer_email, x.reviews, x.completed, x.open, x.sent_back, x.rework_rate, x.avg_hours_to_claim, x.avg_review_days];
+      }), 'Cancelled reviews are excluded. Hours to claim = submitted → claimed; review days = claimed → complete (includes time out for rework).');
+
     // Pipeline history: one row per stage per day; re-running today replaces today's rows.
     var hs = ss.getSheetByName('Pipeline history') || ss.insertSheet('Pipeline history');
     var existing = hs.getLastRow() > 0 ? hs.getRange(1, 1, hs.getLastRow(), 4).getValues() : [];

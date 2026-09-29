@@ -9,6 +9,7 @@ const NAV = [
   { id: 'home', label: 'Home', icon: 'home' },
   { id: 'inbox', label: 'Inbox', icon: 'inbox', countKey: 'inbox' },
   { id: 'my-tasks', label: 'My Tasks', icon: 'check-circle', countKey: 'myTasks' },
+  { id: 'peer-review', label: 'Peer Review', icon: 'eye', countKey: 'reviews' },
 ];
 const NAV_WORK = [
   { id: 'pros', label: 'Pros', icon: 'users', countKey: 'pros' },
@@ -29,12 +30,16 @@ export function useCounts() {
   const myTasks = useStore((s) => s.myTasks);
   const pros = useStore((s) => s.pros);
   const projects = useStore((s) => s.projects);
+  const reviews = useStore((s) => s.reviews);
+  const me = useStore((s) => s.user && s.user.email);
   return React.useMemo(() => ({
+    // waiting for any reviewer, plus reviews that need something from me
+    reviews: reviews.filter((r) => r.status === 'SUBMITTED' || (r.status === 'REWORK' && r.submitted_by === me) || (r.status === 'IN_REVIEW' && r.reviewer_email === me)).length,
     inbox: inbox.length,
     myTasks: myTasks.filter((t) => t.status !== 'DONE').length,
     pros: pros.filter((p) => !p.archived).length,
     projects: projects.filter((p) => !p.archived && p.pipeline_status !== 'COMPLETE').length,
-  }), [inbox, myTasks, pros, projects]);
+  }), [inbox, myTasks, pros, projects, reviews, me]);
 }
 
 function go(view, extra) { navigate({ view, ...(extra || {}) }); }

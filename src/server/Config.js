@@ -20,6 +20,7 @@ var PROP = {
   LAST_SFDC_RESULT: 'LAST_SFDC_RESULT',
   EXPORT_SHEET_ID: 'EXPORT_SHEET_ID',
   LAST_EXPORT: 'LAST_EXPORT',
+  SCHEMA_SIG: 'SCHEMA_SIG',
 };
 
 var DEFAULTS = {
@@ -127,6 +128,17 @@ var SCHEMA = {
     ],
     types: { service_days: 'n' },
   },
+  PeerReviews: {
+    key: 'review_id',
+    cols: [
+      'review_id', 'project_id', 'org_id', 'business_name', 'tax_year', 'filing_type', 'status',
+      'safe_harbor_amount', 'add_ons', 'advisor_email', 'comments', 'submitted_by', 'submitted_at',
+      'reviewer_email', 'claimed_at', 'round', 'rework_count', 'last_rework_notes', 'last_rework_at', 'resubmitted_at',
+      'completed_at', 'completed_by', 'completion_notes', 'cancelled_at', 'cancel_reason',
+      'review_task_id', 'rework_task_id', 'events',
+    ].concat(AUDIT_COLS),
+    types: { tax_year: 'n', round: 'n', rework_count: 'n', row_version: 'n', events: 'j' },
+  },
   IntakeAnswers: {
     key: 'answer_id',
     cols: ['answer_id', 'org_id', 'branch', 'question', 'answer', 'notes', 'source', 'source_ref', 'answered_at', 'answered_by', 'is_current'],
@@ -145,6 +157,11 @@ var ENUMS = {
   ROLE: ['ADVISOR', 'PREPARER', 'PEER_REVIEWER', 'OS', 'BK', 'BK_LEAD', 'BK_TEAM_LEAD', 'EXEC', 'ADMIN'],
   COMPLEXITY: ['LOW', 'MED', 'HIGH'],
   DUE_ANCHOR: ['CLAIMED_AT', 'PROJECT_START', 'FILING_DEADLINE', 'EFILE_DATE', 'NONE'],
+  PEER_REVIEW_STATUS: ['SUBMITTED', 'IN_REVIEW', 'REWORK', 'COMPLETE', 'CANCELLED'],
+  PEER_REVIEW_ADD_ONS: [
+    'Additional K-1s', 'Additional State(s)', 'Form 2553 Timely', 'Form 2553 Late', 'Schedule A', 'Schedule B',
+    'Schedule C', 'Schedule D', 'Schedule E', 'Schedule H', 'Form 8959/8960', 'No add-ons',
+  ],
 };
 
 var LABELS = {
@@ -164,6 +181,9 @@ var LABELS = {
   },
   ENTITY_TYPE: { SOLE_PROP_SCHED_C: 'Sole prop / Sched C', PARTNERSHIP: 'Partnership', S_CORP: 'S-Corp', C_CORP: 'C-Corp' },
   DOC_COLLECTION_STATUS: { WAITING: 'Waiting', RECEIVED: 'Received', PARTIAL: 'Partial' },
+  PEER_REVIEW_STATUS: {
+    SUBMITTED: 'Waiting for reviewer', IN_REVIEW: 'In review', REWORK: 'Needs rework', COMPLETE: 'Review complete', CANCELLED: 'Cancelled',
+  },
   TASK_SECTION: {
     ONBOARDING_SETUP: 'Onboarding & Setup', RETURN_PREP_KICKOFF: 'Return Prep Kickoff', ADVISORY_WORK: 'Advisory Work',
     DOC_GATHERING: 'Document Gathering', EXTENSION: 'Extension', PREP: 'Tax Return Preparation',
