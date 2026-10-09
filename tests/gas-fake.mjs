@@ -202,6 +202,8 @@ export function createGas(opts = {}) {
     ScriptApp: {
       getService: () => ({ getUrl: () => 'https://script.google.com/a/macros/housecallpro.com/s/DEV/exec' }),
       WeekDay: { MONDAY: 'MONDAY' },
+      AuthMode: { FULL: 'FULL' },
+      getAuthorizationInfo: () => ({ getAuthorizationStatus: () => 'NOT_REQUIRED' }),
       getProjectTriggers: () => state.triggers.map(h => ({ getHandlerFunction: () => h })),
       newTrigger(h) {
         const b = { timeBased: () => b, everyHours: () => b, everyMinutes: () => b, everyDays: () => b, atHour: () => b, onWeekDay: () => b, create: () => { state.triggers.push(h); return b; } };
@@ -214,13 +216,14 @@ export function createGas(opts = {}) {
       XFrameOptionsMode: { DEFAULT: 'DEFAULT', ALLOWALL: 'ALLOWALL' },
     },
     ContentService: { MimeType: { TEXT: 'text/plain' }, createTextOutput: (t) => { const o = { text: t, setMimeType: () => o, getContent: () => t }; return o; } },
-    MailApp: { sendEmail: (m) => { (state.mail = state.mail || []).push(m); } },
+    MailApp: { sendEmail: (m) => { (state.mail = state.mail || []).push(m); }, getRemainingDailyQuota: () => 1500 },
     UrlFetchApp: {
       fetch: (url, opts) => {
         (state.fetches = state.fetches || []).push({ url, opts });
         const reply = opts && opts.__reply ? opts.__reply : (state.fetchReply ? state.fetchReply(url, opts) : { ok: true });
         return { getContentText: () => JSON.stringify(reply), getResponseCode: () => 200 };
       },
+      getRequest: (url) => ({ url }),
     },
     MimeType: { GOOGLE_SHEETS: 'application/vnd.google-apps.spreadsheet' },
     Drive: { Files: { create: () => ({ id: state.nextConvertedId }) } },

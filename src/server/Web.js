@@ -70,6 +70,17 @@ function diagnostics_() {
   check('App bundle', function () { return Math.round(appBundle().length / 1024) + ' KB (web-safe base64)'; });
   check('Startup data', function () { var p = Boot.payload(Identity.current()); return p.pros.length + ' pros, ' + p.projects.length + ' projects'; });
   check('Drive advanced service', function () { return typeof Drive !== 'undefined' && Drive.Files ? 'enabled' : (function () { throw new Error('not enabled — Services + → Drive API v3'); })(); });
+  check('Code version', function () { return CODE_VERSION; });
+  check('Runs as', function () { return Session.getEffectiveUser().getEmail(); });
+  check('Email permission', function () {
+    try { return 'granted (' + MailApp.getRemainingDailyQuota() + ' emails left today)'; }
+    catch (e) { throw new Error('missing. In the Apps Script editor run checkPermissions, click Allow, then Deploy → Manage deployments → New version. (' + (e.message || e) + ')'); }
+  });
+  check('Permissions up to date', function () {
+    var st = ScriptApp.getAuthorizationInfo(ScriptApp.AuthMode.FULL).getAuthorizationStatus();
+    if (String(st) === 'REQUIRED') throw new Error('Google needs a new approval. In the editor run checkPermissions and click Allow');
+    return 'yes';
+  });
   check('Triggers', function () { return ScriptApp.getProjectTriggers().map(function (t) { return t.getHandlerFunction(); }).join(', ') || '(none — run setup)'; });
   return ContentService.createTextOutput(lines.join('\n')).setMimeType(ContentService.MimeType.TEXT);
 }

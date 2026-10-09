@@ -15,6 +15,27 @@ function setup() {
   return res;
 }
 
+/** Shown on the ?diag=1 page so you can tell which code is live. */
+var CODE_VERSION = '2026-10-09b (feedback + digest)';
+
+/**
+ * Run this from the Apps Script editor after an update adds permissions.
+ * It touches every service the app uses, so Google asks for all of them at
+ * once, then reports what's granted in the Execution log.
+ */
+function checkPermissions() {
+  var out = ['Code version: ' + CODE_VERSION, 'Running as: ' + Session.getEffectiveUser().getEmail()];
+  var status = String(ScriptApp.getAuthorizationInfo(ScriptApp.AuthMode.FULL).getAuthorizationStatus());
+  out.push('Needs approval: ' + (status === 'REQUIRED' ? 'YES — rerun and click Allow' : 'no'));
+  try { out.push('Email: OK (' + MailApp.getRemainingDailyQuota() + ' left today)'); } catch (e) { out.push('Email: MISSING — ' + e.message); }
+  try { UrlFetchApp.getRequest('https://slack.com/api/api.test'); out.push('Slack/outside services: OK'); } catch (e2) { out.push('Slack/outside services: MISSING — ' + e2.message); }
+  try { out.push('Sheets: OK (' + Db.spreadsheet().getName() + ')'); } catch (e3) { out.push('Sheets: ' + e3.message); }
+  try { DriveApp.getRootFolder().getName(); out.push('Drive: OK'); } catch (e4) { out.push('Drive: MISSING — ' + e4.message); }
+  try { out.push('Triggers: ' + Setup.installTriggers().join('; ')); } catch (e5) { out.push('Triggers: ' + e5.message); }
+  Logger.log(out.join('\n'));
+  return out;
+}
+
 /** Re-install triggers only (e.g. after changing the owner). */
 function installTriggers() {
   return Setup.installTriggers();
