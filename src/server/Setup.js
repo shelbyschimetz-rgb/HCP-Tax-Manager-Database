@@ -9,14 +9,29 @@
  *     daily export to the "Tax Manager Reports" sheet ~6am).
  */
 
+/**
+ * Google's approval screen lets people untick individual permissions, and an
+ * unticked one is never asked for again on its own. This re-shows the
+ * approval for anything still missing (when run from the editor).
+ */
+function requireAllScopes_() {
+  try {
+    if (ScriptApp.requireAllScopes) ScriptApp.requireAllScopes(ScriptApp.AuthMode.FULL);
+  } catch (e) {
+    Logger.log('Some permissions are still not approved: ' + (e && e.message));
+    throw e;
+  }
+}
+
 function setup() {
+  requireAllScopes_();
   var res = Setup.run();
   Logger.log(JSON.stringify(res, null, 2));
   return res;
 }
 
 /** Shown on the ?diag=1 page so you can tell which code is live. */
-var CODE_VERSION = '2026-10-09b (feedback + digest)';
+var CODE_VERSION = '2026-10-09c (feedback + digest)';
 
 /**
  * Run this from the Apps Script editor after an update adds permissions.
@@ -24,6 +39,7 @@ var CODE_VERSION = '2026-10-09b (feedback + digest)';
  * once, then reports what's granted in the Execution log.
  */
 function checkPermissions() {
+  requireAllScopes_();
   var out = ['Code version: ' + CODE_VERSION, 'Running as: ' + Session.getEffectiveUser().getEmail()];
   var status = String(ScriptApp.getAuthorizationInfo(ScriptApp.AuthMode.FULL).getAuthorizationStatus());
   out.push('Needs approval: ' + (status === 'REQUIRED' ? 'YES — rerun and click Allow' : 'no'));
