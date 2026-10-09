@@ -17,15 +17,16 @@ var SFDC_HEADERS = {
   case_owner: ['case owner', 'owner'],
   org_id: ['org id', 'orgid', 'organization id'],
   case_number: ['case number', 'case #', 'case'],
-  service_days: ['service time (days)', 'service time', 'service days'],
+  service_days: ['service time (days)', 'service time days', 'service time', 'service days'],
   notes: ['sub-status notes', 'sub status notes', 'notes'],
   created_date: ['created date', 'created'],
   record_type: ['case record type', 'record type'],
-  date_closed: ['date/time closed', 'date closed', 'closed'],
+  date_closed: ['date/time closed', 'date time closed', 'date closed', 'closed'],
 };
 
 function headerIndex_(headerRow, spec) {
-  var norm = headerRow.map(function (h) { return String(h).trim().toLowerCase(); });
+  // "ACCOUNT_NAME" and "Account Name" both read as "account name"
+  var norm = headerRow.map(function (h) { return String(h).trim().toLowerCase().replace(/_/g, ' ').replace(/\s+/g, ' '); });
   var idx = {};
   Object.keys(spec).forEach(function (field) {
     for (var i = 0; i < spec[field].length; i++) {
@@ -64,6 +65,15 @@ function cellStr_(v) {
   return String(v).trim();
 }
 
+/** The tab a pasted sheet link points at (…#gid=123), or '' if the link names none. */
+function tabFromLink_(link, spreadsheetId) {
+  var m = String(link || '').match(/[#&?]gid=(\d+)/);
+  if (!m || !spreadsheetId) return '';
+  var sheets = SpreadsheetApp.openById(spreadsheetId).getSheets();
+  for (var i = 0; i < sheets.length; i++) if (String(sheets[i].getSheetId()) === m[1]) return sheets[i].getName();
+  throw new AppError('That link points at a tab (gid ' + m[1] + ') that isn\'t in the sheet, or isn\'t shared with the account Tax Manager runs as.', 'VALIDATION');
+}
+
 var Sfdc = {
   /** Cases created before Jan 1 of this year are skipped by the sync. */
   firstYear: function () { return Number(todayIso_().slice(0, 4)); },
@@ -97,27 +107,43 @@ var Sfdc = {
     return out;
   },
 
-  /** Apply parsed cases. Returns a summary; safe to run repeatedly. */
+  /**
+   * Apply parsed cases. Safe to run repeatedly. Writes happen in small locked
+   * batches (not one long lock) so teammates' saves can slip in between.
+   */
   apply: function (cases) {
     var minYear = Sfdc.firstYear();
     var summary = {
       scanned: cases.length, skipped_type: 0, skipped_old: 0, existing: 0, created: 0, flagged_os: 0,
       created_ids: [], errors: [], deferred: 0, cutoff: minYear + '-01-01',
     };
-    var t0 = Date.now();
-    var BUDGET_MS = 240000; // leave headroom under the 6-minute limit; the rest go next run
+    var todo = [];
+    var seen = {};
     cases.forEach(function (c) {
       if (c.record_type && !/tax onboarding/i.test(c.record_type)) { summary.skipped_type++; return; }
       var yr = caseYear_(c.created_date);
       if (yr && yr < minYear) { summary.skipped_old++; return; }
-      if (Db.get('Pros', c.org_id)) { summary.existing++; return; }
-      if (Date.now() - t0 > BUDGET_MS) { summary.deferred++; return; }
-      try {
-        Sfdc.createFromCase(c, summary);
-      } catch (e) {
-        summary.errors.push('Org ' + c.org_id + ' (' + (c.business_name || 'no name') + '): ' + (e.message || e));
-      }
+      if (seen[c.org_id] || Db.get('Pros', c.org_id)) { summary.existing++; return; }
+      seen[c.org_id] = true;
+      todo.push(c);
     });
+    var t0 = Date.now();
+    var BUDGET_MS = 240000; // leave headroom under the 6-minute limit; the rest go next run
+    var CHUNK = 5;
+    for (var i = 0; i < todo.length; i += CHUNK) {
+      if (Date.now() - t0 > BUDGET_MS) { summary.deferred += todo.length - i; break; }
+      var batch = todo.slice(i, i + CHUNK);
+      Locks.withLock(function () {
+        batch.forEach(function (c) {
+          if (Db.get('Pros', c.org_id)) { summary.existing++; return; }
+          try {
+            Sfdc.createFromCase(c, summary);
+          } catch (e) {
+            summary.errors.push('Org ' + c.org_id + ' (' + (c.business_name || 'no name') + '): ' + (e.message || e));
+          }
+        });
+      });
+    }
     return summary;
   },
 
@@ -154,8 +180,10 @@ var Sfdc = {
     var ss = SpreadsheetApp.openById(id);
     var tab = getProp_(PROP.SFDC_TAB);
     var sh = tab ? ss.getSheetByName(tab) : ss.getSheets()[0];
+    Db.clearCache();
     if (!sh) throw new AppError('Tab "' + tab + '" not found in the Salesforce source sheet.');
     var summary = Sfdc.apply(Sfdc.parse(sh.getDataRange().getValues()));
+    summary.tab = sh.getName();
     setProp_(PROP.LAST_SFDC_SYNC, nowIso_());
     setProp_(PROP.LAST_SFDC_RESULT, JSON.stringify(summary));
     return summary;

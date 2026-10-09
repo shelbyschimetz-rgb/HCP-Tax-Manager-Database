@@ -86,7 +86,28 @@ var Identity = (function () {
     var email = emailFromName(name);
     if (!email) return '';
     var m = find(email);
-    return m && m.active ? m.email : '';
+    if (m && m.active) return m.email;
+    // Nicknames and double first names: "Cy Bernal" → cyril.bernal, "Angel Julia Marcos" → angeljulia.marcos.
+    // Only accept a single unambiguous roster match with the same last name.
+    var parts = nameParts(name);
+    var first = parts[0], last = parts[parts.length - 1], joined = parts.slice(0, -1).join('');
+    var hits = roster().filter(function (r) {
+      if (!r.active) return false;
+      var local = r.email.split('@')[0].split('.');
+      if (local.length < 2 || local[local.length - 1] !== last) return false;
+      var f = local[0];
+      return f === joined || f.indexOf(first) === 0 || first.indexOf(f) === 0;
+    });
+    return hits.length === 1 ? hits[0].email : '';
+  }
+
+  function nameParts(name) {
+    return String(name || '')
+      .toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z\s'-]/g, ' ')
+      .replace(/['-]/g, '')
+      .split(/\s+/).filter(Boolean);
   }
 
   function emailFromName(name) {
@@ -113,7 +134,7 @@ var Locks = {
   /** Serialize all writes. Apps Script's script lock is global across users. */
   withLock: function (fn) {
     var lock = LockService.getScriptLock();
-    if (!lock.tryLock(20000)) {
+    if (!lock.tryLock(30000)) {
       throw new AppError('Tax Manager is busy saving someone else\'s change. Try again in a moment.', 'BUSY');
     }
     try {
@@ -127,7 +148,7 @@ var Locks = {
 
 var Audit = {
   log: function (entityType, entityId, action, field, from, to) {
-    Db.insert('AuditLog', {
+    Db.append('AuditLog', [{
       audit_id: uid_('A'),
       ts: nowIso_(),
       actor_email: Identity.currentEmail(),
@@ -137,7 +158,7 @@ var Audit = {
       field: field || '',
       from_value: from == null ? '' : typeof from === 'object' ? JSON.stringify(from) : String(from),
       to_value: to == null ? '' : typeof to === 'object' ? JSON.stringify(to) : String(to),
-    });
+    }]);
   },
   /** Log one row per changed field between two record versions. */
   diff: function (entityType, entityId, before, after, fields) {
@@ -154,7 +175,7 @@ var Audit = {
         });
       }
     });
-    Db.insertMany('AuditLog', rows);
+    Db.append('AuditLog', rows);
     return rows.length;
   },
   forEntity: function (entityType, entityId, limit) {

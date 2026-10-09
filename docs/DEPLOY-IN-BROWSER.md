@@ -65,12 +65,24 @@ In **Settings → Daily reports sheet**, click **Export now** once. That creates
 
 New database tabs and columns (like **PeerReviews**) are added automatically the first time someone opens the app after an update. You don't need to run `setup` again.
 
+## Onboarding case source
+Cases come from the **Tax OB Cases** tab of the "Tax ACE SF Reports Refresh" sheet. In **Settings → Salesforce onboarding feed**, paste the link to that tab (with `#gid=98552997` on the end), click **Save settings**, then **Sync now**. The tab is picked from the link. Both `Account Name` and `ACCOUNT_NAME` style headers work.
+
 ## Salesforce cases from past years
 The sync only takes cases whose **Created Date** is in the current calendar year or later. The cutoff moves forward on its own every January 1. To clear out cases that came in before this rule existed, go to **Settings → Salesforce onboarding feed → Clear out old cases** and click **Find old cases**. It shows:
 - how many untouched pros would be removed (their empty Drive folders go to the Drive trash for 30 days);
 - which pros have work and will be kept. Those only leave the Inbox.
 
 Click **Clean up** to run it. If it says there are more to do, click **Find old cases** again.
+
+## Churned pros
+In **Settings → Churned pros**, click **Preview** to see which pros would be archived from the "Bizsol Retention Data - All Time" report (**Tax** tab, Status = Closed and Sub-Status = Lost). Click **Archive now and turn on daily** to run it and switch on the ~5am daily check. Complete returns are never archived. A pro whose last row is Closed / Saved is left alone. Restoring a pro from Archive sticks until a new Lost case appears. The report must be shared with the account Tax Manager runs as.
+
+## Fresh start for tasks
+**Settings → Fresh start for tasks** moves open tasks created before this Monday out of everyone's lists, either advisors' tasks only or everyone's. They go to the **TasksArchive** tab in the database sheet, so nothing is lost.
+
+## "Someone else is saving" errors
+Tax Manager saves one change at a time. The app now waits up to 30 seconds and retries a busy save quietly up to 3 times before showing an error. The Salesforce sync and the churn check also save in small batches instead of holding up everyone else. If the message still shows up often, tell the admin the time it happened.
 
 ## Peer review
 Peer review replaces the Slack "Tax QA Peer Review" workflow. Preparers submit from a project's **Peer review** tab, and reviewers claim from **Peer Review** in the sidebar. Only people with `PEER_REVIEWER` (or EXEC/ADMIN) in their Identity roles can claim reviews, so add that role to every reviewer before you retire the Slack workflow.

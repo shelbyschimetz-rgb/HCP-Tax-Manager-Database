@@ -130,11 +130,28 @@ function markSaved(key) {
  *   optimistic(): applies the local change and returns an undo function
  *   apply(data): merges the server's response
  */
+/**
+ * The server saves one change at a time. When it answers BUSY (another save
+ * held the lock past the wait), try again quietly before bothering anyone.
+ */
+export const BUSY_RETRY_MS = [1500, 4000, 8000];
+const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+export async function apiRetry(action, payload) {
+  for (let i = 0; ; i++) {
+    try {
+      return await api(action, payload);
+    } catch (e) {
+      if (e.code !== 'BUSY' || i >= BUSY_RETRY_MS.length) throw e;
+      await sleep(BUSY_RETRY_MS[i]);
+    }
+  }
+}
+
 export async function mutate({ label, what, action, payload, optimistic, apply, savedKey, quiet }) {
   const undo = optimistic ? optimistic() : null;
   syncStart(label);
   try {
-    const data = await api(action, payload);
+    const data = await apiRetry(action, payload);
     if (apply) apply(data);
     syncDone();
     if (savedKey) markSaved(savedKey);
@@ -478,7 +495,7 @@ export function updatePro(pro, patch, what) {
       payload: { org_id: id, patch, row_version: cur.row_version },
       savedKey: 'pro:' + id,
       optimistic: () => () => mergePro(undoFields),
-      apply: (d) => { mergePro(d.pro); mergeTasks(d.tasks); },
+      apply: (d) => { mergePro(d.pro); mergeTasks(d.tasks); (d.projects || []).forEach(mergeProject); },
     });
   });
 }

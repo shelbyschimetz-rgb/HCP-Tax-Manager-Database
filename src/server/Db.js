@@ -178,6 +178,36 @@ var Db = (function () {
   }
 
   /**
+   * Append-only write for log tables (AuditLog, TasksArchive): reads just the
+   * header row instead of the whole tab, so a growing log never slows saves.
+   * Keys must be unique by construction (uid_); no duplicate check.
+   */
+  function append(table, objs) {
+    if (!objs || !objs.length) return [];
+    var schema = SCHEMA[table];
+    var sh = sheet(table);
+    var lastCol = Math.max(sh.getLastColumn(), 1);
+    var header = sh.getRange(1, 1, 1, lastCol).getValues()[0].map(function (h) { return String(h).trim(); });
+    var t = { header: header };
+    var out = [];
+    var arrays = objs.map(function (o) {
+      var obj = {};
+      schema.cols.forEach(function (c) { obj[c] = o[c] == null ? null : o[c]; });
+      stamp(table, obj, true);
+      out.push(obj);
+      return rowArray(t, schema, obj);
+    });
+    var start = sh.getLastRow() + 1;
+    var over = start + arrays.length - 1 - sh.getMaxRows();
+    if (over > 0) sh.insertRowsAfter(sh.getMaxRows(), over + 500);
+    var range = sh.getRange(start, 1, arrays.length, header.length);
+    range.setNumberFormat('@');
+    range.setValues(arrays);
+    delete cache[table]; // a loaded copy would now be stale
+    return out;
+  }
+
+  /**
    * Merge `patch` into the row with `key`. If expectedVersion is given and the
    * table versions rows, a mismatch throws a CONFLICT AppError.
    * opts.system: bookkeeping write (wizard progress, Drive link) — doesn't bump
@@ -250,7 +280,7 @@ var Db = (function () {
 
   return {
     spreadsheet: spreadsheet, list: list, get: get, where: where, insert: insert,
-    insertMany: insertMany, update: update, remove: remove, removeMany: removeMany, clearCache: clearCache,
+    insertMany: insertMany, append: append, update: update, remove: remove, removeMany: removeMany, clearCache: clearCache,
     _fromCell: fromCell,
   };
 })();

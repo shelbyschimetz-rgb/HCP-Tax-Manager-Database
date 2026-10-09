@@ -136,6 +136,17 @@ var Tasks = (function () {
     return changed;
   }
 
+  /** Hand open role tasks from one person to another (e.g. advisor change). */
+  function reassignRole(entityType, entityId, roles, from, to) {
+    if (!from || from === to) return [];
+    var changed = [];
+    forEntity(entityType, entityId).forEach(function (t) {
+      if (t.status === 'DONE' || t.status === 'SKIPPED' || t.assignee_email !== from || roles.indexOf(t.assignee_role) < 0) return;
+      changed.push(Db.update('Tasks', t.task_id, { assignee_email: to || '' }));
+    });
+    return changed;
+  }
+
   /** Fill unassigned open tasks whose role now has a person on the record. */
   function fillRoleAssignees(entityType, rec) {
     var entityId = entityType === 'PRO' ? rec.org_id : rec.project_id;
@@ -268,7 +279,7 @@ var Tasks = (function () {
   }
 
   return {
-    forEntity: forEntity, materialize: materialize, reanchor: reanchor, fillRoleAssignees: fillRoleAssignees,
+    forEntity: forEntity, materialize: materialize, reanchor: reanchor, fillRoleAssignees: fillRoleAssignees, reassignRole: reassignRole,
     setStatus: setStatus, create: create, update: update, remove: remove, toggleChecklist: toggleChecklist,
     progressIndex: progressIndex, computeDue: computeDue,
   };

@@ -21,12 +21,19 @@ var PROP = {
   EXPORT_SHEET_ID: 'EXPORT_SHEET_ID',
   LAST_EXPORT: 'LAST_EXPORT',
   SCHEMA_SIG: 'SCHEMA_SIG',
+  CHURN_SHEET_ID: 'CHURN_SHEET_ID',
+  CHURN_TAB: 'CHURN_TAB',
+  CHURN_ENABLED: 'CHURN_ENABLED',
+  LAST_CHURN: 'LAST_CHURN',
 };
 
 var DEFAULTS = {
   EMAIL_DOMAIN: 'housecallpro.com',
   TIMER_MAX_HOURS: 8,
   SFDC_TAB: '',
+  // "Bizsol Retention Data - All Time" → Tax tab
+  CHURN_SHEET_ID: '1VfM9lRbnGEE2-k9f4_StW_QP16bcRk5_d-gGrNZvjvo',
+  CHURN_TAB: 'Tax',
 };
 
 var AUDIT_COLS = ['created_at', 'created_by', 'updated_at', 'updated_by', 'row_version'];
@@ -75,6 +82,20 @@ var SCHEMA = {
       'blocked_by', 'checklist', 'template_id', 'template_version', 'completed_at', 'completed_by',
     ].concat(AUDIT_COLS),
     types: { sort_order: 'n', offset_days: 'n', row_version: 'n', checklist: 'j' },
+  },
+  TasksArchive: {
+    key: 'task_id',
+    cols: [
+      'task_id', 'entity_type', 'entity_id', 'parent_task_id', 'section', 'title',
+      'assignee_email', 'assignee_role', 'due_date', 'due_anchor', 'offset_days', 'status', 'sort_order',
+      'blocked_by', 'checklist', 'template_id', 'template_version', 'completed_at', 'completed_by',
+    ].concat(AUDIT_COLS, ['cleared_at', 'cleared_by', 'cleared_reason']),
+    types: { sort_order: 'n', offset_days: 'n', row_version: 'n', checklist: 'j' },
+  },
+  ChurnLog: {
+    key: 'org_id',
+    cols: ['org_id', 'business_name', 'lost_cases', 'action', 'projects_archived', 'processed_at', 'note'],
+    types: { lost_cases: 'n', projects_archived: 'n' },
   },
   TaskTemplates: {
     key: 'template_id',

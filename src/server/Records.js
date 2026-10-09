@@ -62,10 +62,26 @@ var Pros = {
     var next = Db.update('Pros', orgId, clean, version);
     Audit.diff('PRO', orgId, before, next, Object.keys(clean).filter(function (k) { return k !== 'advisor_assigned_at'; }));
     var tasks = [];
+    var projects = [];
+    var PRO_ROLES = { assigned_advisor_email: ['ADVISOR'], assigned_os_email: ['OS'], bk_lead_email: ['BK', 'BK_LEAD', 'BK_TEAM_LEAD'] };
+    Object.keys(PRO_ROLES).forEach(function (k) {
+      if (k in clean) tasks = tasks.concat(Tasks.reassignRole('PRO', orgId, PRO_ROLES[k], before[k], next[k]));
+    });
     if (['assigned_advisor_email', 'assigned_os_email', 'bk_lead_email'].some(function (k) { return k in clean; })) {
-      tasks = Tasks.fillRoleAssignees('PRO', next);
+      tasks = tasks.concat(Tasks.fillRoleAssignees('PRO', next));
     }
-    return { pro: next, tasks: tasks };
+    // A new advisor takes over the pro's open returns that the old advisor held (or that had none).
+    var from = before.assigned_advisor_email || '';
+    if ('assigned_advisor_email' in clean && (next.assigned_advisor_email || '') !== from && next.assigned_advisor_email) {
+      Db.where('Projects', function (p) {
+        return p.org_id === orgId && !p.archived && p.pipeline_status !== 'COMPLETE' && (!p.tax_advisor_email || p.tax_advisor_email === from);
+      }).forEach(function (p) {
+        var r = Projects.update(p.project_id, { tax_advisor_email: next.assigned_advisor_email });
+        projects.push(r.project);
+        tasks = tasks.concat(r.tasks);
+      });
+    }
+    return { pro: next, tasks: tasks, projects: projects };
   },
 
   archive: function (orgId, reason) {
@@ -165,6 +181,10 @@ var Projects = {
     if ('filing_deadline' in clean) anchors.push('FILING_DEADLINE');
     if ('project_start_date' in clean) anchors.push('PROJECT_START');
     if (anchors.length) tasks = tasks.concat(Tasks.reanchor('PROJECT', next, anchors));
+    var PROJECT_ROLES = { tax_advisor_email: ['ADVISOR'], tax_preparer_email: ['PREPARER'], peer_reviewer_email: ['PEER_REVIEWER'], os_email: ['OS'] };
+    Object.keys(PROJECT_ROLES).forEach(function (k) {
+      if (k in clean) tasks = tasks.concat(Tasks.reassignRole('PROJECT', projectId, PROJECT_ROLES[k], before[k], next[k]));
+    });
     if (['tax_advisor_email', 'tax_preparer_email', 'peer_reviewer_email', 'os_email'].some(function (k) { return k in clean; })) {
       tasks = tasks.concat(Tasks.fillRoleAssignees('PROJECT', next));
     }

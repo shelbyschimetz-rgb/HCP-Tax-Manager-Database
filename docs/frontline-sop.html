@@ -253,7 +253,7 @@ footer { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--line);
       <h1>Working in Tax Manager</h1>
       <p class="lede">How onboarding specialists, tax advisors, tax preparers, peer reviewers and managers move a pro from a closed-won Salesforce case to an e-filed return, all in one shared system.</p>
       <div class="meta">
-        <span><b>Version</b> 1.1</span>
+        <span><b>Version</b> 1.2</span>
         <span><b>Effective</b> September 2026</span>
         <span><b>Replaces</b> the HCP Tax Pros and HCP Tax Returns projects in Asana</span>
       </div>
@@ -497,9 +497,10 @@ footer { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--line);
       <p>Mark a pro at risk when it might churn, miss a deadline or escalate. On the pro's Overview › Risk, set <em>At risk</em> to Yes and write a reason a manager can act on, for example “No docs after 3 follow-ups; deadline 3/15”. The pro then shows on the At-risk report and in the daily reports sheet. Setting it back to No clears the reason.</p>
 
       <h3>Handing a pro to another advisor</h3>
+      <p>The advisor is a dropdown in the side panel of every pro and every return. Click it to change it.</p>
       <ol class="steps">
-        <li><b>Change <em>Tax advisor</em> on the pro's Overview.</b> Its open pro tasks move to the new advisor.</li>
-        <li><b>Change <em>Tax advisor</em> on each open project too.</b> Projects keep their own advisor, so this second step is required.</li>
+        <li><b>Pick the new advisor in the pro's side panel.</b> The pro's open advisor tasks move to them. So does every open return the old advisor held, along with its open advisor tasks. Completed returns keep their history.</li>
+        <li><b>Check any return with a different advisor.</b> Returns assigned to someone other than the old advisor aren't changed. Change those from the return's side panel.</li>
         <li><b>Leave a handoff note on the pro</b>: status, open promises, anything sensitive.</li>
       </ol>
 
@@ -670,6 +671,12 @@ footer { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--line);
       <div class="note"><span class="lbl">Good to know</span>
         <p>Template edits apply only to pros claimed and projects created after the edit. Existing records keep their tasks. To change a return that's already in progress, add, skip or rename its tasks directly.</p></div>
 
+      <h3>Churned pros</h3>
+      <p>Every morning (~5am), Tax Manager reads the <b>Tax</b> tab of the Bizsol retention report. If a pro's latest case is <b>Closed / Lost</b>, it archives the pro and every return that isn't Complete, with the reason “Churned”. If a <b>Closed / Saved</b> row comes after the loss, the pro is left alone. If you restore a churned pro from Archive, it stays restored until a new Lost case shows up. To turn this on, or to preview what it would do, use <span class="ui">Settings › Churned pros</span>.</p>
+
+      <h3>Fresh start for tasks</h3>
+      <p><span class="ui">Settings › Fresh start for tasks</span> clears open tasks created before this Monday, for advisors only or for everyone. Cleared tasks move to the <b>TasksArchive</b> tab of the database sheet, so they can be recovered.</p>
+
       <h3>Archiving</h3>
       <p>Archive instead of deleting. Use the <span class="ui">…</span> menu on a pro or project and give a reason (churned, duplicate, created in error). Archived records leave every active list, report and advisor load count, and they keep their full history. <span class="ui">Archive</span> in the sidebar lists them, with <span class="ui">Restore</span>.</p>
     </section>
@@ -722,7 +729,7 @@ footer { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--line);
           <tr><td class="key">“Your Tax Manager access is inactive”</td><td>You're on the list but marked inactive.</td><td>Ask your manager to set you back to active.</td></tr>
           <tr><td class="key">“Sync failed — click to retry”</td><td>Your last change didn't save and the old value is back on screen.</td><td>Click the pill. If it fails again, reload the page and redo the change.</td></tr>
           <tr><td class="key">“… was changed by someone else. Refresh to see the latest”</td><td>A teammate edited the same record after you loaded it.</td><td>Click the refresh arrow, check their change, then make yours again.</td></tr>
-          <tr><td class="key">“Tax Manager is busy saving someone else's change”</td><td>Several saves arrived at once.</td><td>Wait a few seconds and try again.</td></tr>
+          <tr><td class="key">“Tax Manager is busy saving someone else's change”</td><td>The app already retried for about 45 seconds.</td><td>Click the pill to try again. If it keeps happening, note the time and tell your manager.</td></tr>
           <tr><td class="key">A new case isn't in the Inbox</td><td>Salesforce syncs every 4 hours, and only takes cases created this calendar year.</td><td>Check the case's Created Date in Salesforce, then ask a manager to click Settings › Sync now.</td></tr>
           <tr><td class="key">“Only peer reviewers can claim reviews”</td><td>Your roles don't include Peer Reviewer.</td><td>Ask your manager to add <code>PEER_REVIEWER</code> to your roles.</td></tr>
           <tr><td class="key">“You submitted this return, so someone else has to review it”</td><td>Nobody reviews their own return.</td><td>Leave it for another reviewer.</td></tr>
@@ -822,7 +829,7 @@ footer { margin-top: 56px; padding-top: 18px; border-top: 1px solid var(--line);
     </section>
 
     <footer>
-      Tax Manager Frontline SOP · v1.1 · September 2026. v1.1: peer review moved from Slack into Tax Manager; Salesforce sync limited to the current year. Send changes to your Tax Ops manager. When the app and this document disagree, the Templates and Settings screens are current; update this page to match.
+      Tax Manager Frontline SOP · v1.2 · October 2026. v1.2: advisor dropdown on pros and returns, churned pros auto-archived, task fresh start. v1.1: peer review moved from Slack into Tax Manager; Salesforce sync limited to the current year. Send changes to your Tax Ops manager. When the app and this document disagree, the Templates and Settings screens are current; update this page to match.
     </footer>
   </main>
 </div>

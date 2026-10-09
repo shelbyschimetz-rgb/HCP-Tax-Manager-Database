@@ -113,8 +113,13 @@ var API_ACTIONS = {
 
   /* ---- admin ---- */
   saveSettings: ADMIN_M(function (p) { return Boot.saveSettings(p.settings || {}); }),
-  runSfdcSync: ADMIN_M(function () { return Sfdc.sync(); }),
+  runSfdcSync: ADMIN_R(function () { return Sfdc.sync(); }), // locks itself in small batches
   sfdcCleanup: ADMIN_M(function () { return Sfdc.cleanupOld(); }),
+  taskCleanupPreview: ADMIN_R(function (p) { var r = TaskCleanup.plan(p.scope); delete r.ids; return r; }),
+  taskCleanup: ADMIN_M(function (p) { return TaskCleanup.run(p.scope); }),
+  churnPreview: ADMIN_R(function () { var r = Churn.plan(); r.actions = r.actions.filter(function (a) { return a.action === 'ARCHIVE'; }).slice(0, 300); return r; }),
+  // Runs now and turns the daily run on. Locks itself in small batches.
+  churnRun: ADMIN_R(function () { setProp_(PROP.CHURN_ENABLED, 'true'); Setup.installTriggers(); return Churn.run(); }),
   runExport: ADMIN_R(function () { Setup.installTriggers(); return Exports.run(); }),
   importApply: ADMIN_M(function (p) { return Migration.apply(p.kind, p.csv, p.options || {}); }),
 };
@@ -322,6 +327,11 @@ var Boot = {
       sfdc_first_year: Sfdc.firstYear(),
       triggers: ScriptApp.getProjectTriggers().map(function (t) { return t.getHandlerFunction(); }),
       export: Exports.status(),
+      churn: (function () {
+        var c = Churn.config();
+        var last = getProp_(PROP.LAST_CHURN);
+        return { sheet_id: c.sheet_id, tab: c.tab, enabled: c.enabled, last: last ? JSON.parse(last) : null };
+      })(),
       url: Boot.url(),
     };
   },
@@ -331,14 +341,28 @@ var Boot = {
       var m = String(v || '').match(/[-\w]{25,}/);
       return m ? m[0] : String(v || '').trim();
     }
-    if ('sfdc_sheet_id' in s) setProp_(PROP.SFDC_SHEET_ID, idFrom(s.sfdc_sheet_id));
     if ('sfdc_tab' in s) setProp_(PROP.SFDC_TAB, String(s.sfdc_tab || '').trim());
+    if ('sfdc_sheet_id' in s) {
+      var sid = idFrom(s.sfdc_sheet_id);
+      var linkTab = tabFromLink_(s.sfdc_sheet_id, sid); // a pasted link with #gid= picks its tab
+      setProp_(PROP.SFDC_SHEET_ID, sid);
+      if (linkTab) setProp_(PROP.SFDC_TAB, linkTab);
+    }
     if ('drive_parent_id' in s) setProp_(PROP.DRIVE_PARENT, idFrom(s.drive_parent_id));
     if ('export_sheet_id' in s) {
       var eid = idFrom(s.export_sheet_id);
       if (eid) SpreadsheetApp.openById(eid); // fails loudly if not accessible
       setProp_(PROP.EXPORT_SHEET_ID, eid);
     }
+    if ('churn_sheet_id' in s) {
+      var cid = idFrom(s.churn_sheet_id);
+      if (cid) {
+        var cTab = tabFromLink_(s.churn_sheet_id, cid);
+        setProp_(PROP.CHURN_SHEET_ID, cid);
+        if (cTab) setProp_(PROP.CHURN_TAB, cTab);
+      }
+    }
+    if ('churn_enabled' in s) setProp_(PROP.CHURN_ENABLED, s.churn_enabled ? 'true' : 'false');
     if ('email_domain' in s) setProp_(PROP.EMAIL_DOMAIN, String(s.email_domain || '').replace(/^@/, '').trim());
     if ('timer_max_hours' in s) {
       var h = Number(s.timer_max_hours);

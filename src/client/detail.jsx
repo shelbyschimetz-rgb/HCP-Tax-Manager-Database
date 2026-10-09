@@ -229,15 +229,37 @@ function ProOverview({ pro }) {
   );
 }
 
+/** Inline person picker for the side panels: one click to reassign. */
+function AssignSelect({ value, roles, onChange, fallback }) {
+  const team = useStore((s) => s.team);
+  const list = team.filter((m) => (m.active && m.roles.some((r) => roles.includes(r))) || m.email === value);
+  return (
+    <span className="tm-assign">
+      <Avatar email={value} empty={!value} />
+      <select value={value || ''} onChange={(e) => onChange(e.target.value)} title="Click to change" aria-label="Change assignee">
+        <option value="">{fallback || 'Unassigned'}</option>
+        {list.map((m) => <option key={m.email} value={m.email}>{m.name}{m.active ? '' : ' (inactive)'}</option>)}
+      </select>
+    </span>
+  );
+}
+
+function changeProPerson(pro, field, email, what) {
+  updatePro(pro, { [field]: email }, what).then((d) => {
+    const n = d && d.projects ? d.projects.length : 0;
+    toast('success', what.charAt(0).toUpperCase() + what.slice(1) + ' changed' + (n ? '. ' + n + ' open return' + (n === 1 ? '' : 's') + ' moved too.' : '.'));
+  }).catch(() => {});
+}
+
 function ProSideMeta({ pro, projects }) {
   return (
     <div className="det-card">
       <div className="det-card-head"><div className="title">Pro details</div></div>
       <div style={{ padding: '8px 14px' }}>
         <div className="field"><span className="lbl">Status</span><span className="val"><Pill kind="lifecycle" value={pro.lifecycle_status} /></span></div>
-        <div className="field"><span className="lbl">Advisor</span><span className="val"><Person email={pro.assigned_advisor_email} /></span></div>
-        <div className="field"><span className="lbl">OS</span><span className="val"><Person email={pro.assigned_os_email} fallback={pro.needs_os_assignment ? 'needs assignment' : 'unassigned'} /></span></div>
-        <div className="field"><span className="lbl">BK lead</span><span className="val"><Person email={pro.bk_lead_email} /></span></div>
+        <div className="field"><span className="lbl">Advisor</span><span className="val"><AssignSelect value={pro.assigned_advisor_email} roles={['ADVISOR']} onChange={(v) => changeProPerson(pro, 'assigned_advisor_email', v, 'advisor')} /></span></div>
+        <div className="field"><span className="lbl">OS</span><span className="val"><AssignSelect value={pro.assigned_os_email} roles={['OS']} fallback={pro.needs_os_assignment ? 'Needs assignment' : 'Unassigned'} onChange={(v) => changeProPerson(pro, 'assigned_os_email', v, 'onboarding specialist')} /></span></div>
+        <div className="field"><span className="lbl">BK lead</span><span className="val"><AssignSelect value={pro.bk_lead_email} roles={['BK', 'BK_LEAD', 'BK_TEAM_LEAD']} onChange={(v) => changeProPerson(pro, 'bk_lead_email', v, 'BK lead')} /></span></div>
         <div className="field"><span className="lbl">Entity</span><span className={'val' + (pro.entity_type ? '' : ' empty')}>{label('ENTITY_TYPE', pro.entity_type) || '—'}</span></div>
         <div className="field"><span className="lbl">State</span><span className={'val' + (pro.state ? '' : ' empty')}>{pro.state || '—'}</span></div>
         <div className="field"><span className="lbl">Vertical</span><span className={'val' + (pro.vertical ? '' : ' empty')}>{pro.vertical || '—'}</span></div>
@@ -646,9 +668,9 @@ function ProjectSideMeta({ project, pro }) {
         <div className="field"><span className="lbl">Filing</span><span className="val">{label('FILING_TYPE', project.filing_type)}</span></div>
         <div className="field"><span className="lbl">Tax year</span><span className="val mono">{project.tax_year}</span></div>
         <div className="field"><span className="lbl">Deadline</span><span className={'val mono ' + (project.pipeline_status !== 'COMPLETE' ? dueClass(project.filing_deadline) : '')}>{project.filing_deadline ? fmtDue(project.filing_deadline, true) : '—'}</span></div>
-        <div className="field"><span className="lbl">Advisor</span><span className="val"><Person email={project.tax_advisor_email} /></span></div>
-        <div className="field"><span className="lbl">Preparer</span><span className="val"><Person email={project.tax_preparer_email} /></span></div>
-        <div className="field"><span className="lbl">Peer reviewer</span><span className="val"><Person email={project.peer_reviewer_email} /></span></div>
+        <div className="field"><span className="lbl">Advisor</span><span className="val"><AssignSelect value={project.tax_advisor_email} roles={['ADVISOR']} onChange={(v) => updateProject(project, { tax_advisor_email: v }, 'advisor').then(() => toast('success', 'Advisor changed. Their open tasks on this return moved too.')).catch(() => {})} /></span></div>
+        <div className="field"><span className="lbl">Preparer</span><span className="val"><AssignSelect value={project.tax_preparer_email} roles={['PREPARER', 'ADVISOR']} onChange={(v) => updateProject(project, { tax_preparer_email: v }, 'preparer').catch(() => {})} /></span></div>
+        <div className="field"><span className="lbl">Peer reviewer</span><span className="val"><AssignSelect value={project.peer_reviewer_email} roles={['PEER_REVIEWER', 'ADVISOR']} onChange={(v) => updateProject(project, { peer_reviewer_email: v }, 'peer reviewer').catch(() => {})} /></span></div>
         <div className="field"><span className="lbl">Progress</span><span className="val" style={{ flex: 1 }}><ProgressBar pct={project.progress} /></span></div>
         <div style={{ marginTop: 12, borderTop: '1px solid var(--grey-100)', paddingTop: 12 }}>
           <div className="muted small">Drive folder</div>

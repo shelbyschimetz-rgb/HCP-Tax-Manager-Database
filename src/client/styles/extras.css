@@ -184,3 +184,15 @@ tr.inactive td { opacity: 0.55; }
 .tm-dark .tm-modal .pr-addon { background: #14171c; border-color: #2A2E37; color: #E8EAF0; }
 .tm-dark .tm-modal .pr-addon.on { background: #16324B; border-color: #5AA9EC; color: #9BCBF4; }
 .app.dark .wb-note { background: #3A2A12; color: #F3C27A; border-color: #5A4020; }
+
+/* Side-panel assignee pickers */
+.tm-assign { display: inline-flex; align-items: center; gap: 6px; min-width: 0; flex: 1; }
+.tm-assign select { flex: 1; min-width: 0; font: inherit; font-size: 13px; color: var(--fg-primary); background: transparent; border: 1px solid transparent; border-radius: 6px; padding: 3px 4px; cursor: pointer; text-overflow: ellipsis; }
+.tm-assign select:hover { border-color: var(--border-light); background: var(--grey-50); }
+.tm-assign select:focus-visible { outline: 2px solid var(--primary-main); outline-offset: 1px; }
+.app.dark .tm-assign select { color: #E8EAF0; }
+.app.dark .tm-assign select:hover { background: #232831; border-color: #2A2E37; }
+.app.dark .tm-assign option { background: #1A1D24; }
+.det-side .field .val { min-width: 0; }
+.tm-assign { max-width: 100%; }
+.tm-assign select { width: 100%; }

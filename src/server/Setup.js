@@ -22,7 +22,7 @@ function installTriggers() {
 
 /** Trigger handlers — must be global functions. */
 function sfdcSyncTrigger() {
-  Locks.withLock(function () { return Sfdc.sync(); });
+  Sfdc.sync(); // locks itself in small batches
 }
 function timerAutoStopTrigger() {
   Locks.withLock(function () { return Timer.autoStopStale(); });
@@ -124,12 +124,13 @@ var Setup = {
   },
 
   installTriggers: function () {
-    var want = { sfdcSyncTrigger: 'every 4 hours', timerAutoStopTrigger: 'hourly', dailyExportTrigger: 'daily ~6am' };
+    var want = { sfdcSyncTrigger: 'every 4 hours', timerAutoStopTrigger: 'hourly', dailyExportTrigger: 'daily ~6am', churnTrigger: 'daily ~5am (when turned on)' };
     var have = {};
     ScriptApp.getProjectTriggers().forEach(function (t) { have[t.getHandlerFunction()] = true; });
     var added = [];
     if (!have.sfdcSyncTrigger) { ScriptApp.newTrigger('sfdcSyncTrigger').timeBased().everyHours(4).create(); added.push('sfdcSyncTrigger'); }
     if (!have.timerAutoStopTrigger) { ScriptApp.newTrigger('timerAutoStopTrigger').timeBased().everyHours(1).create(); added.push('timerAutoStopTrigger'); }
+    if (!have.churnTrigger) { ScriptApp.newTrigger('churnTrigger').timeBased().everyDays(1).atHour(5).create(); added.push('churnTrigger'); }
     if (!have.dailyExportTrigger) { ScriptApp.newTrigger('dailyExportTrigger').timeBased().everyDays(1).atHour(6).create(); added.push('dailyExportTrigger'); }
     return Object.keys(want).map(function (k) { return k + ' — ' + want[k] + (added.indexOf(k) >= 0 ? ' (installed)' : ' (already installed)'); });
   },

@@ -52,7 +52,11 @@ class FakeRange {
 }
 
 class FakeSheet {
-  constructor(name, data, maxRows) { this.name = name; this.data = data || []; this.writes = 0; this.maxRows = maxRows || Math.max(1000, this.data.length); }
+  constructor(name, data, maxRows, sheetId) {
+    this.name = name; this.data = data || []; this.writes = 0; this.maxRows = maxRows || Math.max(1000, this.data.length);
+    this.sheetId = sheetId != null ? sheetId : [...name].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % 1e9;
+  }
+  getSheetId() { return this.sheetId; }
   getName() { return this.name; }
   trimmed() {
     let last = this.data.length;
@@ -84,7 +88,7 @@ class FakeSheet {
 class FakeSpreadsheet {
   constructor(id, name, tabs) {
     this.id = id; this.name = name;
-    this.sheets = (tabs || []).map(t => new FakeSheet(t.name, t.data, t.maxRows));
+    this.sheets = (tabs || []).map(t => new FakeSheet(t.name, t.data, t.maxRows, t.sheetId));
   }
   getId() { return this.id; }
   getUrl() { return 'https://docs.google.com/spreadsheets/d/' + this.id; }
@@ -94,7 +98,7 @@ class FakeSpreadsheet {
   getSheets() { return this.sheets.slice(); }
   insertSheet(n) { const s = new FakeSheet(n, []); this.sheets.push(s); return s; }
   deleteSheet(s) { this.sheets = this.sheets.filter(x => x !== s); }
-  toJSON() { return { id: this.id, name: this.name, tabs: this.sheets.map(s => ({ name: s.name, data: s.data, maxRows: s.maxRows })) }; }
+  toJSON() { return { id: this.id, name: this.name, tabs: this.sheets.map(s => ({ name: s.name, data: s.data, maxRows: s.maxRows, sheetId: s.sheetId })) }; }
 }
 
 class FakeProps {

@@ -116,6 +116,25 @@ test('mutate: optimistic change rolls back + toasts on failure, sticks on succes
   assert.equal(calls, 2);
 });
 
+test('a BUSY save is retried quietly and succeeds; one that stays busy surfaces after the retries', async () => {
+  globalThis.window = {};
+  store.BUSY_RETRY_MS.splice(0, store.BUSY_RETRY_MS.length, 1, 1, 1);
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls++;
+    return { json: async () => (calls < 3 ? { ok: false, error: 'busy', code: 'BUSY' } : { ok: true, data: { saved: true } }) };
+  };
+  store.setState({ toasts: [] });
+  const d = await store.mutate({ label: 'z', what: 'z', action: 'x' });
+  assert.deepEqual(d, { saved: true });
+  assert.equal(calls, 3);
+  assert.equal(store.getState().toasts.length, 0, 'no error shown');
+  calls = 0;
+  globalThis.fetch = async () => { calls++; return { json: async () => ({ ok: false, error: 'busy', code: 'BUSY' }) }; };
+  await assert.rejects(store.mutate({ label: 'z', what: 'z', action: 'x' }));
+  assert.equal(calls, 4, '1 try + 3 retries');
+});
+
 test('two quick edits to one pro run in order, each with the latest row_version', async () => {
   let version = 5;
   const seen = [];

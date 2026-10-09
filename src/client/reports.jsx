@@ -252,7 +252,7 @@ export function Settings() {
   const [syncResult, setSyncResult] = React.useState(null);
   const [cleanup, setCleanup] = React.useState(null);
   React.useEffect(() => {
-    api('getSettings').then((d) => { setS(d); setF({ sfdc_sheet_id: d.sfdc_sheet_id, sfdc_tab: d.sfdc_tab, drive_parent_id: d.drive_parent_id, email_domain: d.email_domain, timer_max_hours: d.timer_max_hours, export_sheet_id: (d.export && d.export.sheet_id) || '' }); })
+    api('getSettings').then((d) => { setS(d); setF({ sfdc_sheet_id: d.sfdc_sheet_id, sfdc_tab: d.sfdc_tab, drive_parent_id: d.drive_parent_id, email_domain: d.email_domain, timer_max_hours: d.timer_max_hours, export_sheet_id: (d.export && d.export.sheet_id) || '', churn_sheet_id: (d.churn && d.churn.sheet_id) || '' }); })
       .catch((e) => setErr(e.message));
   }, []);
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
@@ -260,7 +260,8 @@ export function Settings() {
     setBusy('save');
     try {
       const d = await mutate({ label: 'settings', what: 'settings', action: 'saveSettings', payload: { settings: f } });
-      setS(d); toast('success', 'Settings saved');
+      setS(d); setF((cur) => ({ ...cur, sfdc_sheet_id: d.sfdc_sheet_id, sfdc_tab: d.sfdc_tab, churn_sheet_id: d.churn ? d.churn.sheet_id : cur.churn_sheet_id }));
+      toast('success', 'Settings saved');
     } catch (e) { /* toast */ }
     setBusy('');
   }
@@ -315,7 +316,8 @@ export function Settings() {
         <div className="det-card" style={{ padding: 20 }}>
           <h3 className="tm-h3">Salesforce onboarding feed</h3>
           <p className="muted small">The "New Tax Onboarding Cases" sheet. Every 4 hours, rows with Case Record Type = Tax Onboarding, a Created Date in {s.sfdc_first_year || 'this year'} or later, and a new Org ID create a pro + Inbox item. Older cases are skipped.</p>
-          <div className="wiz-field"><label className="lbl">Source sheet URL or ID</label><input className="tm-input" value={f.sfdc_sheet_id || ''} onChange={set('sfdc_sheet_id')} placeholder="https://docs.google.com/spreadsheets/d/…" /></div>
+          <div className="wiz-field"><label className="lbl">Source sheet link</label><input className="tm-input" value={f.sfdc_sheet_id || ''} onChange={set('sfdc_sheet_id')} placeholder="https://docs.google.com/spreadsheets/d/…/edit#gid=…" />
+            <span className="hint">Paste the link while the right tab is open: the tab is picked from the link's #gid. Then click Save settings.</span></div>
           <div className="wiz-field"><label className="lbl">Tab name (blank = first tab)</label><input className="tm-input" value={f.sfdc_tab || ''} onChange={set('sfdc_tab')} /></div>
           <div className="wiz-field"><label className="lbl">Email domain for the Case Owner resolver</label><input className="tm-input" value={f.email_domain || ''} onChange={set('email_domain')} /><span className="hint">"Angel Julia Marcos" → angel.marcos@{f.email_domain || 'housecallpro.com'} — must be on the Identity roster, else the pro is flagged for manual OS assignment.</span></div>
           <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
@@ -352,10 +354,10 @@ export function Settings() {
           <h3 className="tm-h3" style={{ marginTop: 18 }}>Work timer</h3>
           <div className="wiz-field"><label className="lbl">Auto-stop after (hours)</label><input className="tm-input mono" type="number" min="1" max="24" style={{ width: 110 }} value={f.timer_max_hours || ''} onChange={set('timer_max_hours')} /><span className="hint">Forgotten timers stop at this length and are flagged "auto-stopped".</span></div>
           <h3 className="tm-h3" style={{ marginTop: 18 }}>Background jobs</h3>
-          <div className="small">{['sfdcSyncTrigger', 'timerAutoStopTrigger', 'dailyExportTrigger'].map((t) => (
+          <div className="small">{['sfdcSyncTrigger', 'timerAutoStopTrigger', 'dailyExportTrigger', 'churnTrigger'].map((t) => (
             <div key={t} style={{ display: 'flex', gap: 6, alignItems: 'center', margin: '4px 0' }}>
               {s.triggers.includes(t) ? <Icon name="check-circle" size={14} style={{ color: 'var(--success-main)' }} /> : <Icon name="alert" size={14} style={{ color: 'var(--warning-main)' }} />}
-              <span className="mono">{t}</span><span className="muted">{t === 'sfdcSyncTrigger' ? 'every 4h' : t === 'dailyExportTrigger' ? 'daily ~6am' : 'hourly'}</span>
+              <span className="mono">{t}</span><span className="muted">{t === 'sfdcSyncTrigger' ? 'every 4h' : t === 'dailyExportTrigger' ? 'daily ~6am' : t === 'churnTrigger' ? 'daily ~5am' + (s.churn && s.churn.enabled ? '' : ' (off)') : 'hourly'}</span>
             </div>
           ))}</div>
         </div>
@@ -378,6 +380,10 @@ export function Settings() {
       <div style={{ marginTop: 16, display: 'flex', gap: 8 }}>
         <button className="btn primary" disabled={!!busy} onClick={save}>{busy === 'save' ? 'Saving…' : 'Save settings'}</button>
       </div>
+      <div className="tm-settings-grid" style={{ marginTop: 16 }}>
+        <ChurnCard s={s} f={f} set={set} onSaved={(d) => setS(d)} />
+        <TaskCleanupCard />
+      </div>
       <div className="det-card" style={{ padding: 20, marginTop: 16 }}>
         <h3 className="tm-h3">Team roster</h3>
         <p className="muted small" style={{ marginBottom: 0 }}>
@@ -385,6 +391,113 @@ export function Settings() {
         </p>
         <p className="muted small">App URL: <span className="mono">{s.url}</span></p>
       </div>
+    </div>
+  );
+}
+
+/* ---------------- Churned pros (daily auto-archive) ---------------- */
+
+function ChurnCard({ s, f, set, onSaved }) {
+  const [plan, setPlan] = React.useState(null);
+  const [result, setResult] = React.useState(null);
+  const [busy, setBusy] = React.useState('');
+  const c = s.churn || {};
+  async function preview() {
+    setBusy('preview'); setResult(null);
+    try {
+      if ((f.churn_sheet_id || '') !== (c.sheet_id || '')) onSaved(await api('saveSettings', { settings: { churn_sheet_id: f.churn_sheet_id } }));
+      setPlan(await api('churnPreview', {}));
+    } catch (e) { toast('error', e.message); }
+    setBusy('');
+  }
+  async function run() {
+    setBusy('run');
+    try {
+      const r = await mutate({ label: 'churn check', what: 'churn check', action: 'churnRun', payload: {} });
+      setResult(r); setPlan(null);
+      onSaved(await api('getSettings', {}));
+      refreshAll();
+    } catch (e) { /* toast */ }
+    setBusy('');
+  }
+  async function turnOff() {
+    setBusy('off');
+    try { onSaved(await mutate({ label: 'settings', what: 'settings', action: 'saveSettings', payload: { settings: { churn_enabled: false } } })); toast('success', 'Daily churn check turned off'); } catch (e) { /* toast */ }
+    setBusy('');
+  }
+  return (
+    <div className="det-card" style={{ padding: 20 }}>
+      <h3 className="tm-h3">Churned pros</h3>
+      <p className="muted small">Every morning (~5am), pros whose latest case in the retention report is <strong>Closed / Lost</strong> are archived, along with their returns. Complete returns stay as history. A later <strong>Closed / Saved</strong> row means the pro was saved, and they're left alone. Each lost case acts once, so restoring a pro by hand sticks.</p>
+      <div className="wiz-field"><label className="lbl">Retention report link</label><input className="tm-input" value={f.churn_sheet_id || ''} onChange={set('churn_sheet_id')} placeholder="https://docs.google.com/spreadsheets/d/…/edit#gid=…" />
+        <span className="hint">Tab: {c.tab || 'Tax'}. Paste a link with #gid to pick a different tab.</span></div>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <span className={'pill ' + (c.enabled ? 'pp-COMPLETE' : '')}>{c.enabled ? 'On: runs daily' : 'Off'}</span>
+        <button className="btn" disabled={!!busy} onClick={preview}><Icon name="search" size={13} /> {busy === 'preview' ? 'Checking…' : 'Preview'}</button>
+        {c.enabled && <button className="btn subtle" disabled={!!busy} onClick={turnOff}>Turn off</button>}
+        {c.last && <span className="muted small">Last run {relTime(c.last.at)}: {c.last.pros_archived} pros, {c.last.returns_archived} returns archived</span>}
+      </div>
+      {plan && (
+        <div className="wb-note" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8, marginTop: 12 }}>
+          <div><strong>{plan.to_archive}</strong> pros to archive, with <strong>{plan.returns_to_archive}</strong> open returns. {plan.complete_returns_kept} complete returns stay. {plan.not_in_tax_manager} churned pros aren't in Tax Manager.</div>
+          {plan.actions.length > 0 && <div className="small" style={{ maxHeight: 160, overflow: 'auto' }}>{plan.actions.map((a) => <div key={a.org_id}><span className="mono">{a.org_id}</span> {a.business_name}{a.projects.length ? ' · ' + a.projects.length + ' return' + (a.projects.length === 1 ? '' : 's') : ''}</div>)}</div>}
+          <div style={{ display: 'flex', gap: 8 }}>
+            <button className="btn danger" disabled={!!busy} onClick={run}>{busy === 'run' ? 'Archiving…' : plan.to_archive ? 'Archive ' + plan.to_archive + ' now and turn on daily' : 'Turn on daily check'}</button>
+            <button className="btn" disabled={!!busy} onClick={() => setPlan(null)}>Cancel</button>
+          </div>
+        </div>
+      )}
+      {result && <div className="wb-note" style={{ marginTop: 12 }}>Archived {result.pros_archived} pros and {result.returns_archived} returns. The daily check is on.{result.deferred ? ' ' + result.deferred + ' more will finish on the next run.' : ''} Archived pros are in Archive, where Restore brings one back.</div>}
+    </div>
+  );
+}
+
+/* ---------------- Fresh start for tasks ---------------- */
+
+function TaskCleanupCard() {
+  const teamBy = useStore((st) => st.teamBy);
+  const [scope, setScope] = React.useState('ADVISOR');
+  const [plan, setPlan] = React.useState(null);
+  const [done, setDone] = React.useState(null);
+  const [busy, setBusy] = React.useState('');
+  async function preview(sc) {
+    setBusy('preview'); setDone(null);
+    try { setPlan(await api('taskCleanupPreview', { scope: sc || scope })); } catch (e) { toast('error', e.message); }
+    setBusy('');
+  }
+  async function run() {
+    setBusy('run');
+    try {
+      const r = await mutate({ label: 'task cleanup', what: 'task cleanup', action: 'taskCleanup', payload: { scope } });
+      setDone(r); setPlan(null); refreshAll();
+    } catch (e) { /* toast */ }
+    setBusy('');
+  }
+  const name = (e) => (e ? (teamBy[e] ? teamBy[e].name : e) : 'Unassigned');
+  return (
+    <div className="det-card" style={{ padding: 20 }}>
+      <h3 className="tm-h3">Fresh start for tasks</h3>
+      <p className="muted small">Clears open tasks created before this week (Monday) from every list and My Tasks. Done tasks and anything an open peer review needs stay. Cleared tasks move to the <strong>TasksArchive</strong> tab of the database sheet, so nothing is lost.</p>
+      <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <select className="tm-input" style={{ width: 'auto' }} value={scope} onChange={(e) => { setScope(e.target.value); setPlan(null); }}>
+          <option value="ADVISOR">Advisors' tasks</option>
+          <option value="ALL">Everyone's tasks</option>
+        </select>
+        <button className="btn" disabled={!!busy} onClick={() => preview()}><Icon name="search" size={13} /> {busy === 'preview' ? 'Counting…' : 'Preview'}</button>
+      </div>
+      {plan && (
+        <div className="wb-note" style={{ flexDirection: 'column', alignItems: 'stretch', gap: 8, marginTop: 12 }}>
+          <div><strong>{plan.count}</strong> open tasks created before {plan.before}.</div>
+          {plan.by_person.length > 0 && <div className="small">{plan.by_person.slice(0, 12).map((p) => name(p.email) + ' ' + p.count).join(' · ')}</div>}
+          {plan.count > 0 ? (
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="btn danger" disabled={!!busy} onClick={run}>{busy === 'run' ? 'Clearing…' : 'Clear ' + plan.count + ' tasks'}</button>
+              <button className="btn" disabled={!!busy} onClick={() => setPlan(null)}>Cancel</button>
+            </div>
+          ) : <div className="small">Nothing to clear.</div>}
+        </div>
+      )}
+      {done && <div className="wb-note" style={{ marginTop: 12 }}>Cleared {done.cleared} tasks. They're in the TasksArchive tab.</div>}
     </div>
   );
 }

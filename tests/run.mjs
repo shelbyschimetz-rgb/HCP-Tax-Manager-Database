@@ -61,11 +61,11 @@ test('setup creates every tab, seeds templates, installs triggers, adds admin', 
   const tpl = gas.call('getTemplates', { scope: 'PROJECT' });
   assert.equal(tpl.templates.length, 25);
   assert.equal(tpl.versions[0].version, 1);
-  assert.deepEqual(gas.state.triggers.sort(), ['dailyExportTrigger', 'sfdcSyncTrigger', 'timerAutoStopTrigger']);
+  assert.deepEqual(gas.state.triggers.sort(), ['churnTrigger', 'dailyExportTrigger', 'sfdcSyncTrigger', 'timerAutoStopTrigger']);
   // re-running is idempotent
   gas.ctx.setup();
   assert.equal(gas.call('getTemplates', { scope: 'PROJECT' }).templates.length, 25);
-  assert.equal(gas.state.triggers.length, 3);
+  assert.equal(gas.state.triggers.length, 4);
 });
 
 test('non-roster user is refused with a readable message', () => {
@@ -784,6 +784,158 @@ test('new tabs and columns appear after a code update without re-running setup',
   gas.call('bootstrap', {});
   assert.ok(ss.getSheetByName('PeerReviews'), 'tab recreated on first use');
   assert.ok(gas.state.props.SCHEMA_SIG);
+});
+
+
+test('SFDC: reads the Tax OB Cases layout (UPPER_SNAKE headers) and picks the tab from a #gid link', () => {
+  const gas = fresh();
+  const header = ['ACCOUNT_NAME', 'CASE_OWNER', 'ORG_ID', 'CASE_NUMBER', 'SERVICE_TIME_DAYS', 'SUB_STATUS_NOTES', 'CREATED_DATE', 'CASE_RECORD_TYPE', 'DATE_TIME_CLOSED'];
+  const id = gas.addSpreadsheet('Tax ACE SF Reports Refresh', [
+    { name: 'Emails', data: [['x']], sheetId: 0 },
+    { name: 'Tax OB Cases', sheetId: 98552997, data: [header,
+      ['Breathe Easy HVAC', 'Cherrie Groves', '952000', '2266806', '0.16', 'Multi-Product Onboarding', `9/18/${YR} 2:54 PM`, 'Tax Onboarding', `9/28/${YR} 2:17 PM`],
+      ['Old Co', 'Cherrie Groves', '111', '1', '1', '', '3/1/2024 9:00 AM', 'Tax Onboarding', ''],
+    ] },
+  ]);
+  gas.call('saveSettings', { settings: { sfdc_sheet_id: `https://docs.google.com/spreadsheets/d/${id}/edit?gid=98552997#gid=98552997`, sfdc_tab: '' } });
+  assert.equal(gas.state.props.SFDC_SOURCE_TAB, 'Tax OB Cases');
+  const s = gas.call('runSfdcSync', {});
+  assert.equal(s.tab, 'Tax OB Cases');
+  assert.equal(s.created, 1);
+  assert.equal(s.skipped_old, 1);
+  const q = gas.call('bootstrap', {}).inbox[0];
+  assert.equal(q.business_name, 'Breathe Easy HVAC');
+  assert.equal(q.created_date, YR + '-09-18');
+  assert.equal(q.resolved_os_email, OS);
+  assert.equal(gas.raw('saveSettings', { settings: { sfdc_sheet_id: `https://docs.google.com/spreadsheets/d/${id}/edit#gid=42` } }).code, 'VALIDATION');
+});
+
+test('case owner nicknames and double first names resolve when unambiguous', () => {
+  const gas = fresh();
+  const idSheet = gas.spreadsheet().getSheetByName('Identity');
+  const h = idSheet.data[0];
+  const add = (name, email) => idSheet.data.push(h.map(c => ({ name, email, active: 'TRUE', roles: 'OS', accepting_new: 'TRUE' })[c] ?? ''));
+  add('Cyril Bernal', 'cyril.bernal@housecallpro.com');
+  add('Angel Julia Marcos', 'angeljulia.marcos@housecallpro.com');
+  add('Sam Smith', 'sam.smith@housecallpro.com');
+  add('Samantha Smith', 'samantha.smith@housecallpro.com');
+  gas.ctx.Db.clearCache();
+  const r = (n) => gas.ctx.Identity.resolveCaseOwner(n);
+  assert.equal(r('Cy Bernal'), 'cyril.bernal@housecallpro.com');
+  assert.equal(r('Angel Julia Marcos'), 'angeljulia.marcos@housecallpro.com');
+  assert.equal(r('Sam Smith'), 'sam.smith@housecallpro.com', 'exact match wins');
+  assert.equal(r('Sa Smith'), '', 'ambiguous → no guess');
+});
+
+test('audit rows append without reading the whole log', () => {
+  const gas = fresh();
+  gas.call('createPro', { fields: { org_id: '71', business_name: 'Audit Co' } });
+  const log = gas.spreadsheet().getSheetByName('AuditLog');
+  const before = log.data.length;
+  gas.ctx.Db.clearCache();
+  gas.ctx.Locks.withLock(() => gas.ctx.Audit.log('PRO', '71', 'Test', 'f', 'a', 'b'));
+  assert.equal(log.data.length, before + 1);
+  assert.equal(gas.call('getProDetail', { org_id: '71' }).audit[0].action, 'Test');
+});
+
+test('task fresh start: open advisor tasks from before this week move to TasksArchive', () => {
+  const gas = fresh();
+  gas.call('createPro', { fields: { org_id: '81', business_name: 'Old Tasks Co', assigned_advisor_email: ADV_A } });
+  const p = gas.call('createProject', { fields: { org_id: '81', filing_type: 'F1040_SCHC', tax_year: 2025, tax_preparer_email: PREP } }).project;
+  const tasks = gas.ctx.Db.list('Tasks').filter(t => t.entity_id === p.project_id);
+  const done = tasks.find(t => t.assignee_role === 'ADVISOR');
+  gas.call('setTaskStatus', { task_id: done.task_id, status: 'DONE' });
+  // age everything to two weeks ago, except one brand-new advisor task
+  const sh = gas.spreadsheet().getSheetByName('Tasks');
+  const col = sh.data[0].indexOf('created_at');
+  const old = new Date(Date.now() - 14 * 864e5).toISOString();
+  sh.data.slice(1).forEach(r => { r[col] = old; });
+  gas.ctx.Db.clearCache();
+  const fresh1 = gas.call('createTask', { entity_type: 'PROJECT', entity_id: p.project_id, section: 'PREP', title: 'New this week', assignee_email: ADV_A });
+  const openAdv = tasks.filter(t => t.task_id !== done.task_id && t.assignee_email === ADV_A).length;
+  const preview = gas.call('taskCleanupPreview', { scope: 'ADVISOR' });
+  assert.equal(preview.count, openAdv);
+  assert.equal(preview.by_person[0].email, ADV_A);
+  assert.equal(gas.raw('taskCleanup', { scope: 'ADVISOR' }, ADV_A).code, 'FORBIDDEN');
+  const res = gas.call('taskCleanup', { scope: 'ADVISOR' });
+  assert.equal(res.cleared, openAdv);
+  const left = gas.ctx.Db.list('Tasks').filter(t => t.entity_id === p.project_id);
+  assert.ok(left.find(t => t.task_id === fresh1.task_id), 'this week\'s task stays');
+  assert.ok(left.find(t => t.task_id === done.task_id), 'done tasks stay');
+  assert.ok(left.some(t => t.assignee_email === PREP), 'preparer tasks stay with the advisor scope');
+  assert.equal(gas.ctx.Db.list('TasksArchive').length, openAdv);
+  assert.match(gas.ctx.Db.list('TasksArchive')[0].cleared_reason, /Fresh start/);
+  assert.ok(!gas.call('bootstrap', {}, ADV_A).myTasks.some(t => t.status !== 'DONE' && t.task_id !== fresh1.task_id));
+  // Everyone scope picks up the rest
+  const all = gas.call('taskCleanup', { scope: 'ALL' });
+  assert.ok(all.cleared > 0);
+  assert.equal(gas.ctx.Db.list('Tasks').filter(t => t.entity_id === p.project_id && t.status !== 'DONE').map(t => t.task_id).join(), fresh1.task_id);
+});
+
+test('churn: Closed/Lost archives the pro and its open returns, keeps Complete ones, respects later Saves, acts once', () => {
+  const gas = fresh();
+  const mk = (org, name) => gas.call('createPro', { fields: { org_id: org, business_name: name } });
+  mk('504380', 'Sanchez Electric'); mk('423392', 'Flaming Ice'); mk('322284', 'Cedar Creek'); mk('777022', 'Open Case Co');
+  const open = gas.call('createProject', { fields: { org_id: '504380', filing_type: 'F1040_SCHC', tax_year: 2025 } }).project;
+  const done = gas.call('createProject', { fields: { org_id: '504380', filing_type: 'F1040_SCHC', tax_year: 2024, pipeline_status: 'COMPLETE', efile_date: '2025-04-01' } }).project;
+  const header = ['Cancellation Notes', 'Resolution Date/Time', 'Case Owner', 'Status', 'Sub-Status', 'Account Name', 'Org ID'];
+  const rows = [
+    ['', '', 'A', 'In Progress', '', 'Open Case Co', '777022'],
+    ['', '', 'A', 'Closed', 'Lost', 'Sanchez Electric', '504380'],
+    ['', '', 'A', 'Closed', 'Lost', 'Flaming Ice', '423392'],
+    ['', '', 'A', 'Closed', 'Saved', 'Flaming Ice', '423392'],
+    ['', '', 'A', 'Closed', 'Saved', 'Cedar Creek', '322284'],
+    ['', '', 'A', 'Closed', 'Lost', 'Cedar Creek', '322284'],
+    ['', '', 'A', 'Closed', 'Lost', 'Not Ours', '999999'],
+  ];
+  const id = gas.addSpreadsheet('Bizsol Retention Data - All Time', [{ name: 'Tax', data: [header, ...rows], sheetId: 482008257 }]);
+  gas.call('saveSettings', { settings: { churn_sheet_id: `https://docs.google.com/spreadsheets/d/${id}/edit?gid=482008257#gid=482008257` } });
+  const pv = gas.call('churnPreview', {});
+  assert.deepEqual(pv.actions.map(a => a.org_id).sort(), ['322284', '504380']);
+  assert.equal(pv.returns_to_archive, 1);
+  assert.equal(pv.complete_returns_kept, 1);
+  assert.equal(pv.not_in_tax_manager, 1);
+  assert.equal(gas.ctx.churnTrigger(), null, 'daily run stays off until an admin turns it on');
+  const r = gas.call('churnRun', {});
+  assert.equal(r.pros_archived, 2);
+  assert.equal(r.returns_archived, 1);
+  assert.equal(gas.state.props.CHURN_ENABLED, 'true');
+  const boot = gas.call('bootstrap', {});
+  const by = (o) => boot.pros.find(p => p.org_id === o);
+  assert.ok(by('504380').archived && by('322284').archived);
+  assert.match(by('504380').archive_reason, /Closed \/ Lost/);
+  assert.ok(!by('423392').archived, 'saved after the loss');
+  assert.ok(!by('777022').archived, 'open case');
+  assert.ok(boot.projects.find(p => p.project_id === open.project_id).archived);
+  assert.ok(!boot.projects.find(p => p.project_id === done.project_id).archived, 'complete return kept');
+  // a manual restore sticks: the same loss doesn't act again
+  gas.call('restorePro', { org_id: '504380' });
+  assert.equal(gas.ctx.churnTrigger().pros_archived, 0);
+  // a NEW lost case does act
+  gas.spreadsheet(id).getSheetByName('Tax').data.push(['', '', 'B', 'Closed', 'Lost', 'Sanchez Electric', '504380']);
+  assert.equal(gas.ctx.churnTrigger().pros_archived, 1);
+});
+
+test('changing a pro\'s advisor moves its open returns and open advisor tasks', () => {
+  const gas = fresh();
+  gas.call('createPro', { fields: { org_id: '91', business_name: 'Handoff Co', assigned_advisor_email: ADV_A } });
+  const open = gas.call('createProject', { fields: { org_id: '91', filing_type: 'F1040_SCHC', tax_year: 2025 } }).project;
+  const done = gas.call('createProject', { fields: { org_id: '91', filing_type: 'F1040_SCHC', tax_year: 2024, pipeline_status: 'COMPLETE', efile_date: '2025-04-01' } }).project;
+  const other = gas.call('createProject', { fields: { org_id: '91', filing_type: 'S_CORP', tax_year: 2025 } }).project;
+  gas.call('updateProject', { project_id: other.project_id, patch: { tax_advisor_email: ADV_B } });
+  const pro = gas.call('getProDetail', { org_id: '91' }).pro;
+  const res = gas.call('updatePro', { org_id: '91', patch: { assigned_advisor_email: ADV_B }, row_version: pro.row_version });
+  assert.deepEqual(res.projects.map(p => p.project_id), [open.project_id]);
+  const after = gas.call('bootstrap', {}).projects;
+  assert.equal(after.find(p => p.project_id === open.project_id).tax_advisor_email, ADV_B);
+  assert.equal(after.find(p => p.project_id === done.project_id).tax_advisor_email, ADV_A, 'completed return keeps its history');
+  const advTasks = gas.call('getProjectDetail', { project_id: open.project_id }).tasks.filter(t => t.assignee_role === 'ADVISOR');
+  assert.ok(advTasks.length && advTasks.every(t => t.assignee_email === ADV_B));
+  // project-level change hands over that return's preparer tasks too
+  gas.call('updateProject', { project_id: open.project_id, patch: { tax_preparer_email: PREP } });
+  gas.call('updateProject', { project_id: open.project_id, patch: { tax_preparer_email: ADV_A } });
+  const prepTasks = gas.call('getProjectDetail', { project_id: open.project_id }).tasks.filter(t => t.assignee_role === 'PREPARER' && t.status !== 'DONE');
+  assert.ok(prepTasks.every(t => t.assignee_email === ADV_A));
 });
 
 /* ------------------------------------------------------------------ */
