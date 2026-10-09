@@ -196,3 +196,16 @@ tr.inactive td { opacity: 0.55; }
 .det-side .field .val { min-width: 0; }
 .tm-assign { max-width: 100%; }
 .tm-assign select { width: 100%; }
+
+/* Guide (in-app SOP) */
+.guide-wrap { margin: -8px -4px 0; }
+.guide-frame { display: block; width: 100%; height: calc(100vh - 110px); border: 1px solid var(--border-light); border-radius: 10px; background: #fff; }
+.app.dark .guide-frame { background: #0F1620; border-color: #2A2E37; }
+
+/* Feedback + digest */
+.tb-feedback { white-space: nowrap; }
+.digest-preview { white-space: pre-wrap; font: 12.5px/1.5 ui-monospace, Menlo, monospace; background: var(--grey-50); border: 1px solid var(--border-light); border-radius: 8px; padding: 10px 12px; margin: 10px 0 0; max-height: 260px; overflow: auto; }
+.fb-list { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; max-height: 320px; overflow: auto; }
+.fb-item { border: 1px solid var(--border-light); border-radius: 8px; padding: 8px 10px; }
+.fb-msg { white-space: pre-wrap; font-size: 13px; margin-top: 4px; }
+.app.dark .digest-preview, .app.dark .fb-item { background: #1A1D24; border-color: #2A2E37; }

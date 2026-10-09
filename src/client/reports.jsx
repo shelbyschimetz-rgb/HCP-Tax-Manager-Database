@@ -252,7 +252,7 @@ export function Settings() {
   const [syncResult, setSyncResult] = React.useState(null);
   const [cleanup, setCleanup] = React.useState(null);
   React.useEffect(() => {
-    api('getSettings').then((d) => { setS(d); setF({ sfdc_sheet_id: d.sfdc_sheet_id, sfdc_tab: d.sfdc_tab, drive_parent_id: d.drive_parent_id, email_domain: d.email_domain, timer_max_hours: d.timer_max_hours, export_sheet_id: (d.export && d.export.sheet_id) || '', churn_sheet_id: (d.churn && d.churn.sheet_id) || '' }); })
+    api('getSettings').then((d) => { setS(d); setF({ sfdc_sheet_id: d.sfdc_sheet_id, sfdc_tab: d.sfdc_tab, drive_parent_id: d.drive_parent_id, email_domain: d.email_domain, timer_max_hours: d.timer_max_hours, export_sheet_id: (d.export && d.export.sheet_id) || '', churn_sheet_id: (d.churn && d.churn.sheet_id) || '', feedback_email: d.feedback_email || '', digest_channel: (d.digest && d.digest.channel) || 'off', slack_token: '' }); })
       .catch((e) => setErr(e.message));
   }, []);
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
@@ -260,7 +260,7 @@ export function Settings() {
     setBusy('save');
     try {
       const d = await mutate({ label: 'settings', what: 'settings', action: 'saveSettings', payload: { settings: f } });
-      setS(d); setF((cur) => ({ ...cur, sfdc_sheet_id: d.sfdc_sheet_id, sfdc_tab: d.sfdc_tab, churn_sheet_id: d.churn ? d.churn.sheet_id : cur.churn_sheet_id }));
+      setS(d); setF((cur) => ({ ...cur, sfdc_sheet_id: d.sfdc_sheet_id, sfdc_tab: d.sfdc_tab, churn_sheet_id: d.churn ? d.churn.sheet_id : cur.churn_sheet_id, slack_token: '' }));
       toast('success', 'Settings saved');
     } catch (e) { /* toast */ }
     setBusy('');
@@ -354,10 +354,10 @@ export function Settings() {
           <h3 className="tm-h3" style={{ marginTop: 18 }}>Work timer</h3>
           <div className="wiz-field"><label className="lbl">Auto-stop after (hours)</label><input className="tm-input mono" type="number" min="1" max="24" style={{ width: 110 }} value={f.timer_max_hours || ''} onChange={set('timer_max_hours')} /><span className="hint">Forgotten timers stop at this length and are flagged "auto-stopped".</span></div>
           <h3 className="tm-h3" style={{ marginTop: 18 }}>Background jobs</h3>
-          <div className="small">{['sfdcSyncTrigger', 'timerAutoStopTrigger', 'dailyExportTrigger', 'churnTrigger'].map((t) => (
+          <div className="small">{['sfdcSyncTrigger', 'timerAutoStopTrigger', 'dailyExportTrigger', 'churnTrigger', 'digestTrigger', 'feedbackEmailTrigger'].map((t) => (
             <div key={t} style={{ display: 'flex', gap: 6, alignItems: 'center', margin: '4px 0' }}>
               {s.triggers.includes(t) ? <Icon name="check-circle" size={14} style={{ color: 'var(--success-main)' }} /> : <Icon name="alert" size={14} style={{ color: 'var(--warning-main)' }} />}
-              <span className="mono">{t}</span><span className="muted">{t === 'sfdcSyncTrigger' ? 'every 4h' : t === 'dailyExportTrigger' ? 'daily ~6am' : t === 'churnTrigger' ? 'daily ~5am' + (s.churn && s.churn.enabled ? '' : ' (off)') : 'hourly'}</span>
+              <span className="mono">{t}</span><span className="muted">{t === 'sfdcSyncTrigger' ? 'every 4h' : t === 'dailyExportTrigger' ? 'daily ~6am' : t === 'churnTrigger' ? 'daily ~5am' + (s.churn && s.churn.enabled ? '' : ' (off)') : t === 'digestTrigger' ? 'weekdays ~7am' + (s.digest && s.digest.channel !== 'off' ? '' : ' (off)') : t === 'feedbackEmailTrigger' ? 'Mondays ~8am' : 'hourly'}</span>
             </div>
           ))}</div>
         </div>
@@ -383,6 +383,8 @@ export function Settings() {
       <div className="tm-settings-grid" style={{ marginTop: 16 }}>
         <ChurnCard s={s} f={f} set={set} onSaved={(d) => setS(d)} />
         <TaskCleanupCard />
+        <DigestCard s={s} f={f} set={set} save={save} />
+        <FeedbackCard f={f} set={set} save={save} />
       </div>
       <div className="det-card" style={{ padding: 20, marginTop: 16 }}>
         <h3 className="tm-h3">Team roster</h3>
@@ -498,6 +500,90 @@ function TaskCleanupCard() {
         </div>
       )}
       {done && <div className="wb-note" style={{ marginTop: 12 }}>Cleared {done.cleared} tasks. They're in the TasksArchive tab.</div>}
+    </div>
+  );
+}
+
+/* ---------------- Morning digest ---------------- */
+
+function DigestCard({ s, f, set, save }) {
+  const d = s.digest || {};
+  const [busy, setBusy] = React.useState('');
+  const [preview, setPreview] = React.useState(null);
+  const [result, setResult] = React.useState(null);
+  const dirty = (f.digest_channel || 'off') !== (d.channel || 'off') || !!f.slack_token;
+  async function run(action, label, after) {
+    setBusy(action);
+    try { const r = await mutate({ label, what: label, action, payload: {} }); after && after(r); } catch (e) { /* toast */ }
+    setBusy('');
+  }
+  return (
+    <div className="det-card" style={{ padding: 20 }}>
+      <h3 className="tm-h3">Morning digest</h3>
+      <p className="muted small">Weekdays around 7am, everyone on the roster gets a personal summary: overdue and due-today tasks, return deadlines in the next 2 weeks, and peer reviews waiting on them. People with nothing open get nothing.</p>
+      <div className="wiz-field"><label className="lbl">Send by</label>
+        <select className="tm-input" value={f.digest_channel || 'off'} onChange={set('digest_channel')}>
+          <option value="off">Off</option>
+          <option value="slack">Slack direct message</option>
+          <option value="email">Email</option>
+        </select></div>
+      {(f.digest_channel === 'slack' || d.channel === 'slack') && (
+        <div className="wiz-field"><label className="lbl">Slack bot token</label>
+          <input className="tm-input mono" type="password" autoComplete="off" value={f.slack_token || ''} onChange={set('slack_token')} placeholder={d.slack_token_set ? 'Saved (' + d.slack_token_hint + '). Paste a new one to replace it' : 'xoxb-…'} />
+          <span className="hint">From a Slack app your Slack admin creates: Bot Token Scopes <span className="mono">chat:write</span>, <span className="mono">users:read</span>, <span className="mono">users:read.email</span> → Install to workspace → copy the Bot User OAuth Token.</span></div>
+      )}
+      {dirty && <button className="btn primary" disabled={!!busy} onClick={save} style={{ marginBottom: 10 }}>Save digest settings</button>}
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
+        <button className="btn" disabled={!!busy} onClick={async () => { setBusy('p'); try { setPreview((await api('digestPreview', {})).text || 'Nothing open for you today. You wouldn\'t get a message.'); } catch (e) { toast('error', e.message); } setBusy(''); }}><Icon name="eye" size={13} /> Preview mine</button>
+        <button className="btn" disabled={!!busy || dirty || d.channel === 'off'} onClick={() => run('digestTest', 'test digest', () => toast('success', 'Sent you a test by ' + (d.channel === 'slack' ? 'Slack' : 'email')))}>Send me a test</button>
+        <button className="btn" disabled={!!busy || dirty || d.channel === 'off'} onClick={() => run('digestSendNow', 'digest', setResult)}>{busy === 'digestSendNow' ? 'Sending…' : 'Send to everyone now'}</button>
+      </div>
+      {d.last && <div className="muted small" style={{ marginTop: 8 }}>Last sent {relTime(d.last.at)}: {d.last.sent} people{d.last.failed ? ', ' + d.last.failed + ' failed' : ''}.</div>}
+      {result && <div className="wb-note" style={{ marginTop: 10, flexDirection: 'column', alignItems: 'stretch' }}>Sent {result.sent}; {result.nothing} had nothing open.{result.failed.length > 0 && <div className="small">Couldn't reach: {result.failed.join('; ')}</div>}</div>}
+      {preview && <pre className="digest-preview">{preview}</pre>}
+    </div>
+  );
+}
+
+/* ---------------- Feedback inbox ---------------- */
+
+function FeedbackCard({ f, set, save }) {
+  const teamBy = useStore((st) => st.teamBy);
+  const [st, setSt] = React.useState(null);
+  const [busy, setBusy] = React.useState(false);
+  const load = React.useCallback(() => api('feedbackStatus', {}).then(setSt).catch((e) => toast('error', e.message)), []);
+  React.useEffect(() => { load(); }, [load]);
+  async function sendNow() {
+    setBusy(true);
+    try { const r = await mutate({ label: 'feedback email', what: 'feedback email', action: 'sendFeedbackNow', payload: {} }); toast('success', 'Emailed ' + r.items + ' item' + (r.items === 1 ? '' : 's') + ' to ' + r.to); load(); } catch (e) { /* toast */ }
+    setBusy(false);
+  }
+  const KIND = { BUG: 'Bug', IDEA: 'Idea', QUESTION: 'Question' };
+  return (
+    <div className="det-card" style={{ padding: 20 }}>
+      <h3 className="tm-h3">Feedback inbox</h3>
+      <p className="muted small">Everyone has a <strong>Feedback</strong> button in the top bar. New items are emailed to you every Monday (~8am) and saved in the Feedback tab of the database sheet.</p>
+      <div className="wiz-field"><label className="lbl">Weekly email goes to</label>
+        <div style={{ display: 'flex', gap: 8 }}><input className="tm-input" value={f.feedback_email || ''} onChange={set('feedback_email')} placeholder="you@housecallpro.com" />
+          <button className="btn" onClick={save}>Save</button></div></div>
+      {st && (
+        <>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <span className="muted small">{st.unsent} new since the last email{st.last ? ' (' + relTime(st.last.at) + ')' : ''}</span>
+            <button className="btn sm" disabled={busy} onClick={sendNow}>{busy ? 'Sending…' : st.unsent ? 'Email them now' : 'Send a test email'}</button>
+          </div>
+          <div className="fb-list">
+            {st.recent.map((x) => (
+              <div key={x.feedback_id} className="fb-item">
+                <div className="muted small"><span className={'pill ' + (x.kind === 'BUG' ? 'pp-BLOCKED' : 'pp-DOC_GATHERING')}>{KIND[x.kind] || x.kind}</span> {teamBy[x.created_by] ? teamBy[x.created_by].name : x.created_by} · {relTime(x.created_at)}{x.emailed_at ? '' : ' · new'}</div>
+                <div className="fb-msg">{x.message}</div>
+                {x.screenshot_url && <a className="small" href={x.screenshot_url} target="_blank" rel="noreferrer">Screenshot</a>}
+              </div>
+            ))}
+            {!st.recent.length && <div className="muted small">No feedback yet.</div>}
+          </div>
+        </>
+      )}
     </div>
   );
 }

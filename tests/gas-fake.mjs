@@ -154,6 +154,10 @@ export function createGas(opts = {}) {
     };
   }
   const DriveApp = {
+    getRootFolder() {
+      if (!state.folders.root) state.folders.root = { id: 'root', name: 'My Drive', parent: null };
+      return makeFolder('root', 'My Drive', null);
+    },
     getFolderById(id) {
       const f = state.folders[id];
       if (!f) throw new Error('No folder ' + id);
@@ -197,9 +201,10 @@ export function createGas(opts = {}) {
     },
     ScriptApp: {
       getService: () => ({ getUrl: () => 'https://script.google.com/a/macros/housecallpro.com/s/DEV/exec' }),
+      WeekDay: { MONDAY: 'MONDAY' },
       getProjectTriggers: () => state.triggers.map(h => ({ getHandlerFunction: () => h })),
       newTrigger(h) {
-        const b = { timeBased: () => b, everyHours: () => b, everyMinutes: () => b, everyDays: () => b, atHour: () => b, create: () => { state.triggers.push(h); return b; } };
+        const b = { timeBased: () => b, everyHours: () => b, everyMinutes: () => b, everyDays: () => b, atHour: () => b, onWeekDay: () => b, create: () => { state.triggers.push(h); return b; } };
         return b;
       },
     },
@@ -209,6 +214,14 @@ export function createGas(opts = {}) {
       XFrameOptionsMode: { DEFAULT: 'DEFAULT', ALLOWALL: 'ALLOWALL' },
     },
     ContentService: { MimeType: { TEXT: 'text/plain' }, createTextOutput: (t) => { const o = { text: t, setMimeType: () => o, getContent: () => t }; return o; } },
+    MailApp: { sendEmail: (m) => { (state.mail = state.mail || []).push(m); } },
+    UrlFetchApp: {
+      fetch: (url, opts) => {
+        (state.fetches = state.fetches || []).push({ url, opts });
+        const reply = opts && opts.__reply ? opts.__reply : (state.fetchReply ? state.fetchReply(url, opts) : { ok: true });
+        return { getContentText: () => JSON.stringify(reply), getResponseCode: () => 200 };
+      },
+    },
     MimeType: { GOOGLE_SHEETS: 'application/vnd.google-apps.spreadsheet' },
     Drive: { Files: { create: () => ({ id: state.nextConvertedId }) } },
     Date, JSON, Math, Object, Array, String, Number, Boolean, RegExp, Error, isNaN, parseFloat, parseInt, Intl,

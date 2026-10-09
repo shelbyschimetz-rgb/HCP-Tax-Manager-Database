@@ -61,11 +61,11 @@ test('setup creates every tab, seeds templates, installs triggers, adds admin', 
   const tpl = gas.call('getTemplates', { scope: 'PROJECT' });
   assert.equal(tpl.templates.length, 25);
   assert.equal(tpl.versions[0].version, 1);
-  assert.deepEqual(gas.state.triggers.sort(), ['churnTrigger', 'dailyExportTrigger', 'sfdcSyncTrigger', 'timerAutoStopTrigger']);
+  assert.deepEqual(gas.state.triggers.sort(), ['churnTrigger', 'dailyExportTrigger', 'digestTrigger', 'feedbackEmailTrigger', 'sfdcSyncTrigger', 'timerAutoStopTrigger']);
   // re-running is idempotent
   gas.ctx.setup();
   assert.equal(gas.call('getTemplates', { scope: 'PROJECT' }).templates.length, 25);
-  assert.equal(gas.state.triggers.length, 4);
+  assert.equal(gas.state.triggers.length, 6);
 });
 
 test('non-roster user is refused with a readable message', () => {
@@ -936,6 +936,69 @@ test('changing a pro\'s advisor moves its open returns and open advisor tasks', 
   gas.call('updateProject', { project_id: open.project_id, patch: { tax_preparer_email: ADV_A } });
   const prepTasks = gas.call('getProjectDetail', { project_id: open.project_id }).tasks.filter(t => t.assignee_role === 'PREPARER' && t.status !== 'DONE');
   assert.ok(prepTasks.every(t => t.assignee_email === ADV_A));
+});
+
+
+test('feedback: anyone can send (with a screenshot); the weekly email sends only new items, once', () => {
+  const gas = fresh();
+  assert.equal(gas.raw('submitFeedback', { kind: 'BUG', message: ' ' }, PREP).code, 'VALIDATION');
+  const png = Buffer.from('fake png').toString('base64');
+  const f = gas.call('submitFeedback', { kind: 'BUG', message: 'Timer froze on <Summit>', page: '#/project/PRJ-1', screenshot: { mime: 'image/png', base64: png } }, PREP);
+  assert.ok(f.screenshot_url);
+  gas.call('submitFeedback', { kind: 'IDEA', message: 'Bulk reassign would help' }, OS);
+  assert.equal(gas.raw('feedbackStatus', {}, PREP).code, 'FORBIDDEN');
+  assert.equal(gas.call('feedbackStatus', {}).unsent, 2);
+  gas.call('saveSettings', { settings: { feedback_email: 'shelby.lead@housecallpro.com' } });
+  const r = gas.ctx.feedbackEmailTrigger();
+  assert.equal(r.items, 2);
+  const mail = gas.state.mail[0];
+  assert.equal(mail.to, 'shelby.lead@housecallpro.com');
+  assert.match(mail.subject, /2 new/);
+  assert.match(mail.htmlBody, /Timer froze on &lt;Summit&gt;/, 'escaped');
+  assert.match(mail.htmlBody, /Bugs \(1\)[\s\S]*Ideas \(1\)/);
+  assert.match(mail.htmlBody, /Jordan Preparer/);
+  assert.equal(gas.ctx.feedbackEmailTrigger().sent, false, 'nothing new → no email');
+  assert.equal(gas.state.mail.length, 1);
+});
+
+test('morning digest: per-person tasks, deadlines and reviews; Slack DM or email; quiet people skipped', () => {
+  const gas = fresh();
+  gas.call('createPro', { fields: { org_id: '61', business_name: 'Digest Co', assigned_advisor_email: ADV_A } });
+  const p = gas.call('createProject', { fields: { org_id: '61', filing_type: 'S_CORP', tax_year: 2025, tax_preparer_email: PREP, filing_deadline: gas.ctx.addDays_(gas.ctx.todayIso_(), 5) } }).project;
+  const t = gas.call('createTask', { entity_type: 'PROJECT', entity_id: p.project_id, section: 'PREP', title: 'Late thing', assignee_email: PREP, due_date: gas.ctx.addDays_(gas.ctx.todayIso_(), -2) });
+  gas.call('submitPeerReview', { project_id: p.project_id, add_ons: ['No add-ons'] }, PREP);
+  const prev = gas.call('digestPreview', {}, PREP).text;
+  assert.match(prev, /Good morning, Jordan/);
+  assert.match(prev, /1 overdue/);
+  assert.match(prev, /Late thing — Digest Co · TY2025/);
+  assert.match(prev, /Return deadlines[\s\S]*Digest Co · TY2025 S-Corp/);
+  assert.match(gas.call('digestPreview', {}, PEER).text, /1 waiting in the queue/);
+  assert.equal(gas.call('digestPreview', {}, BK).text, '', 'nothing to say');
+  assert.equal(gas.ctx.digestTrigger(), null, 'off by default');
+
+  assert.equal(gas.raw('saveSettings', { settings: { slack_token: 'nope' } }).code, 'VALIDATION');
+  gas.call('saveSettings', { settings: { slack_token: 'xoxb-123-abc', digest_channel: 'slack' } });
+  assert.equal(gas.call('getSettings', {}).digest.slack_token_hint, '…-abc');
+  assert.ok(!JSON.stringify(gas.call('getSettings', {})).includes('xoxb-123-abc'), 'token never sent to the browser');
+  gas.state.fetchReply = (url) => (url.includes('lookupByEmail') ? { ok: true, user: { id: 'U' + url.length } } : { ok: true });
+  const sum = gas.ctx.Digest.sendAll();
+  assert.ok(sum.sent >= 2 && sum.nothing >= 1 && !sum.failed.length);
+  const posts = gas.state.fetches.filter(f => f.url.endsWith('chat.postMessage'));
+  assert.equal(posts.length, sum.sent);
+  assert.equal(posts[0].opts.headers.Authorization, 'Bearer xoxb-123-abc');
+  const lookups = gas.state.fetches.filter(f => f.url.includes('lookupByEmail')).length;
+  gas.ctx.Digest.sendAll();
+  assert.equal(gas.state.fetches.filter(f => f.url.includes('lookupByEmail')).length, lookups, 'Slack user IDs are cached');
+
+  gas.state.fetchReply = (url) => (url.includes('lookupByEmail') ? { ok: false, error: 'users_not_found' } : { ok: true });
+  gas.state.props.SLACK_USER_IDS = '{}';
+  assert.match(gas.ctx.Digest.sendAll().failed[0], /users_not_found/);
+
+  gas.call('saveSettings', { settings: { digest_channel: 'email' } });
+  gas.state.mail = [];
+  gas.call('digestTest', {}, PREP);
+  assert.equal(gas.state.mail[0].to, PREP);
+  assert.match(gas.state.mail[0].htmlBody, /<b>Good morning, Jordan!<\/b>/);
 });
 
 /* ------------------------------------------------------------------ */

@@ -3,6 +3,7 @@ import React from 'react';
 import { Icon, TMLogo, Popover } from './ui.jsx';
 import { useStore, savePrefs, refreshAll, stopTimer } from './store.js';
 import { navigate, useRoute } from './router.js';
+import { FeedbackButton } from './help.jsx';
 import { timeAgo, fmtElapsed, ROLE_LABELS, cx } from './util.js';
 
 const NAV = [
@@ -17,6 +18,7 @@ const NAV_WORK = [
   { id: 'templates', label: 'Templates', icon: 'template' },
   { id: 'reports', label: 'Reports', icon: 'chart' },
   { id: 'archive', label: 'Archive', icon: 'archive' },
+  { id: 'guide', label: 'Guide', icon: 'help' },
 ];
 const BUILTIN_STARRED = [
   { id: 'pros-my', label: 'My pros', view: 'pros', savedView: 'my' },
@@ -250,6 +252,7 @@ export function Topbar({ crumbs, onOpenPro }) {
       <div className="tb-actions">
         <TimerChip />
         <SyncPill />
+        <FeedbackButton />
         <button className="tb-icon-btn" title="Refresh data" onClick={refreshAll}><Icon name="refresh" size={17} /></button>
         <HelpButton />
         <PrefsMenu />
@@ -271,6 +274,7 @@ function HelpButton() {
           <div><span className="kbd">Enter</span> save a task or inline edit</div>
           <div><span className="kbd">⌘/Ctrl ↵</span> post a note</div>
           <div style={{ marginTop: 8 }}>Every change saves in the background — watch the pill in the top bar. Use <Icon name="refresh" size={11} /> to pull the latest changes from teammates.</div>
+          <button className="btn sm" style={{ marginTop: 10 }} onClick={() => { setOpen(false); navigate({ view: 'guide' }); }}><Icon name="file-text" size={12} /> Open the full guide</button>
         </div>
       </Popover>
     </span>

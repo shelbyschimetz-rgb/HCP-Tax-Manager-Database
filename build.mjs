@@ -26,6 +26,7 @@ const result = await esbuild.build({
   minify: !dev,
   sourcemap: dev ? 'inline' : false,
   jsx: 'automatic',
+  loader: { '.html': 'text' }, // docs/frontline-sop.html → the in-app Guide
   define: { 'process.env.NODE_ENV': JSON.stringify(dev ? 'development' : 'production') },
   write: false,
   logLevel: 'warning',

@@ -59,6 +59,7 @@ Rows are matched by Org ID and by each Asana project's own link, so re-importing
 In **Settings → Daily reports sheet**, click **Export now** once. That creates **Tax Manager Reports** in your Drive and turns on the daily refresh (~6am): Pros, Tax Returns, each report, **Peer reviews**, **Peer review summary**, and a growing **Pipeline history** tab.
 
 ## Updating later (keeps the same link)
+After pasting new code, **don't click Run.** Save, then publish a new version (step 2 below). Run is only needed when an update asks for a new permission, as described under "New permissions" below.
 1. Paste the new **Code.gs** and **index.html** over the old ones and save.
 2. Go to **Deploy → Manage deployments** → **pencil icon** → **Version: New version** → **Deploy**.
 3. If the update adds a background job, open **Settings** in the app and click **Save settings** (or run `setup` again) to switch it on.
@@ -83,6 +84,16 @@ In **Settings → Churned pros**, click **Preview** to see which pros would be a
 
 ## "Someone else is saving" errors
 Tax Manager saves one change at a time. The app now waits up to 30 seconds and retries a busy save quietly up to 3 times before showing an error. The Salesforce sync and the churn check also save in small batches instead of holding up everyone else. If the message still shows up often, tell the admin the time it happened.
+
+## New permissions (feedback email and morning digest)
+The feedback email and the morning digest need two more Google permissions: sending email, and connecting to Slack. When **appsscript.json** changes:
+1. Paste the new **appsscript.json** too, and save.
+2. Pick **setup** in the function dropdown, click **▶ Run**, then **Review permissions → Allow**. setup is safe to re-run.
+3. Publish a new version as usual.
+
+## Feedback and morning digest
+- **Settings → Feedback inbox:** choose who gets the Monday email. It defaults to the account that deployed the app.
+- **Settings → Morning digest:** choose Slack or Email. For Slack, a Slack admin creates an app with the Bot Token Scopes `chat:write`, `users:read` and `users:read.email`, installs it to the workspace, and gives you the **Bot User OAuth Token** (it starts with `xoxb-`). Paste it, click **Save digest settings**, then **Send me a test**.
 
 ## Peer review
 Peer review replaces the Slack "Tax QA Peer Review" workflow. Preparers submit from a project's **Peer review** tab, and reviewers claim from **Peer Review** in the sidebar. Only people with `PEER_REVIEWER` (or EXEC/ADMIN) in their Identity roles can claim reviews, so add that role to every reviewer before you retire the Slack workflow.

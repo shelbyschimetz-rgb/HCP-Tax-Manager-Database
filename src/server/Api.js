@@ -81,6 +81,14 @@ var API_ACTIONS = {
   startTimer: M(function (p) { return Timer.start(p.project_id, p.force); }),
   stopTimer: M(function (p) { return Timer.stop(p.entry_id); }),
 
+  /* ---- feedback + morning digest ---- */
+  submitFeedback: M(function (p) { return Feedback.submit(p); }),
+  feedbackStatus: ADMIN_R(function () { return Feedback.status(); }),
+  sendFeedbackNow: ADMIN_M(function () { return Feedback.sendWeekly(true); }),
+  digestPreview: R(function (p, me) { return Digest.preview(p.email && Identity.hasRole(me, ['EXEC', 'ADMIN']) ? p.email : me.email); }),
+  digestTest: R(function (p, me) { return Digest.test(me.email); }),
+  digestSendNow: ADMIN_R(function () { return Digest.sendAll(); }),
+
   /* ---- peer review ---- */
   submitPeerReview: M(function (p) { return PeerReviews.submit(p); }),
   claimPeerReview: M(function (p) { return PeerReviews.claim(p.review_id); }),
@@ -327,6 +335,8 @@ var Boot = {
       sfdc_first_year: Sfdc.firstYear(),
       triggers: ScriptApp.getProjectTriggers().map(function (t) { return t.getHandlerFunction(); }),
       export: Exports.status(),
+      feedback_email: Feedback.recipient(),
+      digest: Digest.status(),
       churn: (function () {
         var c = Churn.config();
         var last = getProp_(PROP.LAST_CHURN);
@@ -361,6 +371,14 @@ var Boot = {
         setProp_(PROP.CHURN_SHEET_ID, cid);
         if (cTab) setProp_(PROP.CHURN_TAB, cTab);
       }
+    }
+    if ('feedback_email' in s) setProp_(PROP.FEEDBACK_EMAIL, String(s.feedback_email || '').trim());
+    if ('digest_channel' in s) setProp_(PROP.DIGEST_CHANNEL, ['slack', 'email'].indexOf(s.digest_channel) >= 0 ? s.digest_channel : 'off');
+    if (s.slack_token) {
+      var tok = String(s.slack_token).trim();
+      if (tok === 'clear') setProp_(PROP.SLACK_TOKEN, '');
+      else if (!/^xoxb-/.test(tok)) throw new AppError('That isn\'t a Slack bot token. It starts with xoxb-.', 'VALIDATION');
+      else { setProp_(PROP.SLACK_TOKEN, tok); setProp_(PROP.SLACK_IDS, '{}'); }
     }
     if ('churn_enabled' in s) setProp_(PROP.CHURN_ENABLED, s.churn_enabled ? 'true' : 'false');
     if ('email_domain' in s) setProp_(PROP.EMAIL_DOMAIN, String(s.email_domain || '').replace(/^@/, '').trim());

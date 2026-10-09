@@ -13,9 +13,10 @@ import { Home, MyTasks, Templates, Archive, Inbox } from './misc.jsx';
 import { IntakeWizard } from './intake.jsx';
 import { Reports, Settings } from './reports.jsx';
 import { PeerReviewQueue } from './review.jsx';
+import { Guide } from './help.jsx';
 
 const VIEW_TITLES = {
-  home: 'Home', inbox: 'Inbox', 'my-tasks': 'My Tasks', 'peer-review': 'Peer Review', pros: 'Pros', projects: 'Projects', templates: 'Templates',
+  home: 'Home', inbox: 'Inbox', 'my-tasks': 'My Tasks', 'peer-review': 'Peer Review', guide: 'Guide', pros: 'Pros', projects: 'Projects', templates: 'Templates',
   reports: 'Reports', archive: 'Archive', settings: 'Settings',
 };
 
@@ -115,6 +116,7 @@ function App() {
       case 'inbox': return <Inbox />;
       case 'my-tasks': return <MyTasks />;
       case 'peer-review': return <PeerReviewQueue />;
+      case 'guide': return <Guide />;
       case 'pros': return <ProsList />;
       case 'projects': return <ProjectsList />;
       case 'pro': return <ProDetail key={route.id} orgId={route.id} />;
