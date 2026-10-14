@@ -1,7 +1,7 @@
 /* App shell: routing, drawer, chrome, boot. */
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import { useStore, applyBoot, getState, clearFlash } from './store.js';
+import { useStore, applyBoot, getState, clearFlash, startTimerSync } from './store.js';
 import { api } from './api.js';
 import { useRoute, navigate, patchRoute, initRouter } from './router.js';
 import { openRecord, getListOrder, closeDrawer } from './nav.js';
@@ -201,4 +201,5 @@ async function startInner() {
   // Don't let a slow/missing google.script.url callback leave the page blank.
   await Promise.race([initRouter(), new Promise((r) => setTimeout(r, 2500))]);
   root.render(<App />);
+  startTimerSync();
 }

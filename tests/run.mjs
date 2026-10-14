@@ -1001,6 +1001,34 @@ test('morning digest: per-person tasks, deadlines and reviews; Slack DM or email
   assert.match(gas.state.mail[0].htmlBody, /<b>Good morning, Jordan!<\/b>/);
 });
 
+
+test('timer: stop uses the click time, a repeat stop adds nothing, short sessions log 1 minute, getTimer reflects the server', () => {
+  const gas = fresh();
+  gas.call('createPro', { fields: { org_id: '51', business_name: 'Timer Co' } });
+  const p = gas.call('createProject', { fields: { org_id: '51', filing_type: 'F1040_SCHC', tax_year: 2025 } }).project;
+  const e = gas.call('startTimer', { project_id: p.project_id }, PREP).entry;
+  assert.equal(gas.call('getTimer', {}, PREP).entry_id, e.entry_id);
+  assert.match(gas.call('getTimer', {}, PREP).label, /Timer Co · TY2025/);
+  // pretend it started 50 minutes ago; the click happened 20 minutes ago (the save is late)
+  const sh = gas.spreadsheet().getSheetByName('TimeEntries');
+  const col = sh.data[0].indexOf('started_at');
+  sh.data[1][col] = new Date(Date.now() - 50 * 60000).toISOString();
+  gas.ctx.Db.clearCache();
+  const stopped = gas.call('stopTimer', { entry_id: e.entry_id, at: new Date(Date.now() - 20 * 60000).toISOString() }, PREP);
+  assert.equal(stopped.duration_min, 30);
+  const again = gas.call('stopTimer', { entry_id: e.entry_id, at: new Date().toISOString() }, PREP);
+  assert.equal(again.duration_min, 30, 'a retried stop never adds time');
+  assert.equal(gas.call('getTimer', {}, PREP), null);
+  const backdate = (id, sec) => { const r = sh.data.find(x => x[0] === id); r[col] = new Date(Date.now() - sec * 1000).toISOString(); gas.ctx.Db.clearCache(); };
+  const quick = gas.call('startTimer', { project_id: p.project_id }, PREP).entry;
+  backdate(quick.entry_id, 10);
+  assert.equal(gas.call('stopTimer', { entry_id: quick.entry_id }, PREP).duration_min, 1, 'a few seconds still logs 1 minute');
+  // a click time from the future or before the start is ignored
+  const odd = gas.call('startTimer', { project_id: p.project_id }, PREP).entry;
+  backdate(odd.entry_id, 10);
+  assert.equal(gas.call('stopTimer', { entry_id: odd.entry_id, at: '1999-01-01T00:00:00Z' }, PREP).duration_min, 1);
+});
+
 /* ------------------------------------------------------------------ */
 
 let failed = 0;

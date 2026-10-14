@@ -179,6 +179,13 @@ function TimerChip() {
     return () => clearInterval(t);
   }, [timer]);
   if (!timer) return null;
+  if (timer.stopAt) {
+    return (
+      <button className="btn sm" style={{ borderColor: 'var(--error-main)', color: 'var(--error-main)' }} title="The stop didn't save. Click to try again; it keeps the time you first clicked Stop." onClick={stopTimer}>
+        <Icon name="alert" size={12} /> Stop not saved — retry
+      </button>
+    );
+  }
   const sec = Math.max(0, Math.floor((Date.now() - new Date(timer.started_at).getTime()) / 1000));
   return (
     <button className="btn sm timer-running" title={'Timer on ' + timer.label + ' — click to stop & log'} onClick={stopTimer}

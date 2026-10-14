@@ -135,13 +135,17 @@ function markSaved(key) {
  * held the lock past the wait), try again quietly before bothering anyone.
  */
 export const BUSY_RETRY_MS = [1500, 4000, 8000];
+// Safe to resend after a dropped connection (common right after the tab sat in
+// the background): the server ignores a duplicate start/stop.
+const NETWORK_SAFE = new Set(['startTimer', 'stopTimer', 'getTimer', 'refresh', 'bootstrap', 'setTaskStatus']);
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 export async function apiRetry(action, payload) {
   for (let i = 0; ; i++) {
     try {
       return await api(action, payload);
     } catch (e) {
-      if (e.code !== 'BUSY' || i >= BUSY_RETRY_MS.length) throw e;
+      const retryable = e.code === 'BUSY' || (e.code === 'NETWORK' && NETWORK_SAFE.has(action));
+      if (!retryable || i >= BUSY_RETRY_MS.length) throw e;
       await sleep(BUSY_RETRY_MS[i]);
     }
   }
@@ -642,18 +646,76 @@ export async function startTimer(project, force) {
   return res;
 }
 
+const PENDING_STOP = 'tm-pending-stop';
+function savePendingStop(v) {
+  try { if (v) localStorage.setItem(PENDING_STOP, JSON.stringify(v)); else localStorage.removeItem(PENDING_STOP); } catch (e) { /* storage blocked */ }
+}
+function readPendingStop() {
+  try { return JSON.parse(localStorage.getItem(PENDING_STOP) || 'null'); } catch (e) { return null; }
+}
+
+/**
+ * Stop and log. The click time is sent with the request and kept until the
+ * server confirms, so a failed or retried save (even after a reload) logs the
+ * time the person actually clicked Stop.
+ */
 export async function stopTimer() {
   const t = state.timer;
   if (!t) return;
+  const at = t.stopAt || new Date().toISOString();
+  savePendingStop({ entry_id: t.entry_id, at, label: t.label });
   setState({ timer: null });
   try {
-    const e = await mutate({ label: 'time entry', what: 'time entry', action: 'stopTimer', payload: { entry_id: t.entry_id } });
+    const e = await mutate({ label: 'time entry', what: 'time entry', action: 'stopTimer', payload: { entry_id: t.entry_id, at } });
+    savePendingStop(null);
     patchDetail('project', e.project_id, (d) => ({ ...d, time: d.time.map((x) => (x.entry_id === e.entry_id ? e : x)) }));
     toast(e.auto_stopped ? 'error' : 'success',
       e.auto_stopped ? e.note : 'Logged ' + Math.floor(e.duration_min / 60) + 'h ' + (e.duration_min % 60) + 'm on ' + t.label);
   } catch (err) {
-    setState({ timer: t });
+    setState({ timer: { ...t, stopAt: at } }); // chip comes back; clicking it retries with the same stop time
   }
+}
+
+/**
+ * The server owns the timer. Re-read it when the tab comes back into view
+ * (and every few minutes while it's open), so another tab, an auto-stop, or a
+ * sleeping laptop never leaves a stale timer on screen. Also finishes any stop
+ * that didn't save before the page was closed.
+ */
+let lastTimerSync = 0;
+export async function syncTimer(reason) {
+  if (Date.now() - lastTimerSync < 5000 && reason !== 'boot') return;
+  lastTimerSync = Date.now();
+  const pending = readPendingStop();
+  try {
+    const server = await apiRetry('getTimer', {});
+    if (pending && server && server.entry_id === pending.entry_id) {
+      setState({ timer: { ...server, stopAt: pending.at } });
+      return stopTimer();
+    }
+    if (pending) savePendingStop(null);
+    const local = state.timer;
+    if (local && local.stopAt) return; // a stop is waiting on a retry click
+    if (!server && local) {
+      setState({ timer: null });
+      toast('success', 'Your timer on ' + local.label + ' was stopped (in another tab, or by the 8-hour auto-stop). Time & stages has the entry.');
+    } else if (server && (!local || local.entry_id !== server.entry_id)) {
+      setState({ timer: server });
+    }
+    const running = state.timer;
+    if (running && reason === 'visible') {
+      const h = (Date.now() - new Date(running.started_at).getTime()) / 3600000;
+      if (h >= 3) toast('success', 'Your timer on ' + running.label + ' has been running ' + Math.floor(h) + 'h. Still working?', { label: 'Stop & log', fn: stopTimer });
+    }
+  } catch (e) { /* offline: try again next time */ }
+}
+
+export function startTimerSync() {
+  if (typeof document === 'undefined') return;
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') syncTimer('visible'); });
+  window.addEventListener('focus', () => syncTimer('visible'));
+  setInterval(() => { if (document.visibilityState === 'visible') syncTimer('interval'); }, 3 * 60 * 1000);
+  syncTimer('boot');
 }
 
 /* ---------------- inbox ---------------- */

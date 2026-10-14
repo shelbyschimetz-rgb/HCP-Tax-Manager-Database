@@ -79,7 +79,8 @@ var API_ACTIONS = {
   resolveOutstanding: M(function (p) { return Outstanding.setResolved(p.item_id, p.resolved); }),
   deleteOutstanding: M(function (p) { return Outstanding.remove(p.item_id); }),
   startTimer: M(function (p) { return Timer.start(p.project_id, p.force); }),
-  stopTimer: M(function (p) { return Timer.stop(p.entry_id); }),
+  stopTimer: M(function (p) { return Timer.stop(p.entry_id, p.at); }),
+  getTimer: R(function (p, me) { return Timer.current(me.email); }),
 
   /* ---- feedback + morning digest ---- */
   submitFeedback: M(function (p) { return Feedback.submit(p); }),

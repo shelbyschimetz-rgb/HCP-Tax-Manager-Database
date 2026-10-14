@@ -473,41 +473,37 @@ function nextStage(project, history) {
 
 function WorkTimerButton({ project }) {
   const timer = useStore((s) => s.timer);
-  const [conflict, setConflict] = React.useState(null);
+  const [busy, setBusy] = React.useState(false);
   const [, tick] = React.useState(0);
-  const running = timer && timer.project_id === project.project_id;
+  const running = timer && timer.project_id === project.project_id && !timer.stopAt;
   React.useEffect(() => {
     if (!running) return undefined;
     const t = setInterval(() => tick((x) => x + 1), 1000);
     return () => clearInterval(t);
   }, [running]);
   async function start(force) {
+    if (busy) return;
+    setBusy(true);
     try {
       const res = await startTimer(project, force);
-      if (res && res.conflict) setConflict(res.conflict); else setConflict(null);
-    } catch (e) { /* toast */ }
+      if (res && res.conflict) {
+        // A real dialog (not a popover) so it survives clicking elsewhere.
+        const ok = await confirmDialog('Timer already running', {
+          message: 'Your timer is running on ' + res.conflict.label + '. Stop it, log that time, and start timing this return instead?',
+          ok: 'Stop that & start here',
+        });
+        if (ok) await startTimer(project, true);
+      }
+    } catch (e) { /* toast shown */ }
+    setBusy(false);
   }
   const elapsed = running ? Math.max(0, Math.floor((Date.now() - new Date(timer.started_at).getTime()) / 1000)) : 0;
-  return (
-    <div className="popover-host">
-      {running ? (
-        <button className="btn timer-running" onClick={stopTimer} title="Stop timer & log time">
-          <span className="timer-dot" /> <span className="mono">{fmtElapsed(elapsed)}</span> <Icon name="stop" size={13} />
-        </button>
-      ) : (
-        <button className="btn" onClick={() => start(false)} title="Start work timer"><Icon name="play" size={13} /> Start timer</button>
-      )}
-      <Popover open={!!conflict} onClose={() => setConflict(null)} align="right" style={{ minWidth: 300, top: 'calc(100% + 6px)' }}>
-        <h6>Timer already running</h6>
-        <p className="small" style={{ margin: '0 0 10px', color: 'var(--fg-secondary)' }}>
-          You have a timer running on <strong>{conflict && conflict.label}</strong>. Stop it before starting a new one.
-        </p>
-        <div style={{ display: 'flex', gap: 8, justifyContent: 'flex-end' }}>
-          <button className="btn sm subtle" onClick={() => setConflict(null)}>Cancel</button>
-          <button className="btn sm primary" onClick={() => start(true)}>Stop that &amp; start here</button>
-        </div>
-      </Popover>
-    </div>
+  return running ? (
+    <button className="btn timer-running" onClick={stopTimer} title="Stop timer & log time">
+      <span className="timer-dot" /> <span className="mono">{fmtElapsed(elapsed)}</span> <Icon name="stop" size={13} />
+    </button>
+  ) : (
+    <button className="btn" disabled={busy} onClick={() => start(false)} title="Start work timer"><Icon name="play" size={13} /> {busy ? 'Starting…' : 'Start timer'}</button>
   );
 }
 

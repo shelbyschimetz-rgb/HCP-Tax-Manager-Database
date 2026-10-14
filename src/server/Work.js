@@ -81,11 +81,15 @@ var Timer = {
     return { entry: entry, stopped: stopped };
   },
 
-  stopEntry: function (entry, auto) {
+  /** atMs: when the person clicked Stop (sent by the browser), so a slow or retried save doesn't add time. */
+  stopEntry: function (entry, auto, atMs) {
     var max = Timer.maxMinutes();
     var startMs = new Date(entry.started_at).getTime();
     var nowMs = Date.now();
-    var minutes = Math.max(0, Math.round((nowMs - startMs) / 60000));
+    if (atMs && atMs >= startMs && atMs <= nowMs + 60000) nowMs = Math.min(atMs, nowMs);
+    var elapsed = nowMs - startMs;
+    // Round to the minute, but never log a real session as 0 minutes.
+    var minutes = elapsed <= 0 ? 0 : Math.max(1, Math.round(elapsed / 60000));
     var autoStopped = !!auto || minutes > max;
     if (minutes > max) minutes = max;
     var stoppedAt = autoStopped ? new Date(startMs + minutes * 60000).toISOString() : new Date(nowMs).toISOString();
@@ -95,12 +99,23 @@ var Timer = {
     });
   },
 
-  stop: function (entryId) {
+  stop: function (entryId, at) {
     var e = Db.get('TimeEntries', entryId);
     if (!e) throw new AppError('Timer entry not found.', 'NOT_FOUND');
     if (e.user_email !== Identity.currentEmail()) throw new AppError('That timer belongs to someone else.', 'FORBIDDEN');
-    if (e.stopped_at) return e;
-    return Timer.stopEntry(e, false);
+    if (e.stopped_at) return e; // already stopped (another tab, a retry, or auto-stop): nothing to add
+    var atMs = at ? new Date(at).getTime() : null;
+    return Timer.stopEntry(e, false, isNaN(atMs) ? null : atMs);
+  },
+
+  /** The person's running timer with a display label, or null. */
+  current: function (email) {
+    var t = Timer.running(email);
+    if (!t) return null;
+    var p = Db.get('Projects', t.project_id);
+    var pro = p ? Db.get('Pros', p.org_id) : null;
+    t.label = p ? (pro ? pro.business_name : p.org_id) + ' · TY' + p.tax_year : t.project_id;
+    return t;
   },
 
   /** Time-driven (hourly): stop any timer that has run past the max duration. */
