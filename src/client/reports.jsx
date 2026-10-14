@@ -1,7 +1,7 @@
 /* Reports (CSV export) + admin Settings. */
 import React from 'react';
 import { Icon, Avatar, Person, Pill } from './ui.jsx';
-import { useStore, api, mutate, toast, refreshAll } from './store.js';
+import { useStore, api, mutate, toast, refreshAll, setState } from './store.js';
 import { openRecord } from './nav.js';
 import { label, toCSV, downloadCSV, fmtTsShort, fmtMinutes, relTime, today } from './util.js';
 import { PeerReviewReport } from './review.jsx';
@@ -252,7 +252,7 @@ export function Settings() {
   const [syncResult, setSyncResult] = React.useState(null);
   const [cleanup, setCleanup] = React.useState(null);
   React.useEffect(() => {
-    api('getSettings').then((d) => { setS(d); setF({ sfdc_sheet_id: d.sfdc_sheet_id, sfdc_tab: d.sfdc_tab, drive_parent_id: d.drive_parent_id, email_domain: d.email_domain, timer_max_hours: d.timer_max_hours, export_sheet_id: (d.export && d.export.sheet_id) || '', churn_sheet_id: (d.churn && d.churn.sheet_id) || '', feedback_email: d.feedback_email || '', digest_channel: (d.digest && d.digest.channel) || 'off', slack_token: '' }); })
+    api('getSettings').then((d) => { setS(d); setF({ sfdc_sheet_id: d.sfdc_sheet_id, sfdc_tab: d.sfdc_tab, drive_parent_id: d.drive_parent_id, email_domain: d.email_domain, timer_max_hours: d.timer_max_hours, export_sheet_id: (d.export && d.export.sheet_id) || '', churn_sheet_id: (d.churn && d.churn.sheet_id) || '', feedback_email: d.feedback_email || '', digest_channel: (d.digest && d.digest.channel) || 'off', slack_token: '', ...gameForm(d.game) }); })
       .catch((e) => setErr(e.message));
   }, []);
   const set = (k) => (e) => setF({ ...f, [k]: e.target.value });
@@ -385,6 +385,7 @@ export function Settings() {
         <TaskCleanupCard />
         <DigestCard s={s} f={f} set={set} save={save} />
         <FeedbackCard f={f} set={set} save={save} />
+        <GameCard f={f} setF={setF} save={save} />
       </div>
       <div className="det-card" style={{ padding: 20, marginTop: 16 }}>
         <h3 className="tm-h3">Team roster</h3>
@@ -546,6 +547,43 @@ function DigestCard({ s, f, set, save }) {
 }
 
 /* ---------------- Feedback inbox ---------------- */
+
+function gameForm(g) {
+  g = g || {};
+  return { game_enabled: g.enabled !== false, game_start: g.start || '', game_end: g.end || '', game_goal: g.goal || 10000, game_prize: g.prize || '' };
+}
+
+function GameCard({ f, setF, save }) {
+  const set = (k) => (e) => setF((cur) => ({ ...cur, [k]: e.target.value }));
+  async function toggle(on) {
+    setF((cur) => ({ ...cur, game_enabled: on }));
+    try {
+      await mutate({ label: 'contest', what: 'contest', action: 'saveSettings', payload: { settings: { game_enabled: on } } });
+      setState((st) => ({ config: { ...st.config, game_enabled: on } }));
+      toast('success', on ? 'Contest skins are on. Everyone can pick one from the top bar.' : 'Contest is off. Everyone is back to the classic look.');
+    } catch (e) { setF((cur) => ({ ...cur, game_enabled: !on })); }
+  }
+  return (
+    <div className="det-card" style={{ padding: 20 }}>
+      <h3 className="tm-h3">Contest &amp; skins</h3>
+      <p className="muted small">Everyone picks a skin from the dropdown in the top bar (it only changes their own view). A skin adds a Game tab with live points, a leaderboard and badges, all counted from real work inside the dates below.</p>
+      <div className="tm-pref-row"><span>Contest</span>
+        <div className="tm-seg">
+          <button className={f.game_enabled !== false ? 'on' : ''} onClick={() => toggle(true)}>On</button>
+          <button className={f.game_enabled === false ? 'on' : ''} onClick={() => toggle(false)}>Off</button>
+        </div>
+      </div>
+      <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+        <div className="wiz-field"><label className="lbl">Starts</label><input className="tm-input" type="date" value={f.game_start || ''} onChange={set('game_start')} /></div>
+        <div className="wiz-field"><label className="lbl">Ends (blank = open)</label><input className="tm-input" type="date" value={f.game_end || ''} onChange={set('game_end')} /></div>
+        <div className="wiz-field"><label className="lbl">Team goal (points)</label><input className="tm-input mono" type="number" min="1" style={{ width: 120 }} value={f.game_goal || ''} onChange={set('game_goal')} /></div>
+      </div>
+      <div className="wiz-field"><label className="lbl">Prize (optional)</label><input className="tm-input" value={f.game_prize || ''} onChange={set('game_prize')} placeholder="Team lunch" /></div>
+      <p className="muted small" style={{ margin: 0 }}>Aliens vs. Auditors splits people into two teams: put A or B in the <span className="mono">team</span> column of the Identity tab. Blank: advisors are Aliens, everyone else Auditors.</p>
+      <div><button className="btn" onClick={save}>Save</button></div>
+    </div>
+  );
+}
 
 function FeedbackCard({ f, set, save }) {
   const teamBy = useStore((st) => st.teamBy);

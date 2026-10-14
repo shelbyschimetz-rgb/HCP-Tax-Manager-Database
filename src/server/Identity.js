@@ -43,6 +43,7 @@ var Identity = (function () {
       roles: roles,
       active: row.active !== false,
       accepting_new: row.accepting_new !== false,
+      team: String(row.team || '').trim(),
     };
   }
 

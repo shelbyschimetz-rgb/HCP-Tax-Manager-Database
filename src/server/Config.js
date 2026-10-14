@@ -27,6 +27,11 @@ var PROP = {
   SLACK_IDS: 'SLACK_USER_IDS',
   DIGEST_CHANNEL: 'DIGEST_CHANNEL',
   LAST_DIGEST: 'LAST_DIGEST',
+  GAME_ENABLED: 'GAME_ENABLED',
+  GAME_START: 'GAME_START',
+  GAME_END: 'GAME_END',
+  GAME_GOAL: 'GAME_GOAL',
+  GAME_PRIZE: 'GAME_PRIZE',
   CHURN_SHEET_ID: 'CHURN_SHEET_ID',
   CHURN_TAB: 'CHURN_TAB',
   CHURN_ENABLED: 'CHURN_ENABLED',
@@ -148,7 +153,7 @@ var SCHEMA = {
   },
   Identity: {
     key: 'email',
-    cols: ['name', 'email', 'active', 'roles', 'accepting_new', 'color'],
+    cols: ['name', 'email', 'active', 'roles', 'accepting_new', 'color', 'team'],
     types: { active: 'b', accepting_new: 'b' },
   },
   SfdcIntakeQueue: {

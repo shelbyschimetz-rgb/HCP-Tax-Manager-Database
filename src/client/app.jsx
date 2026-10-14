@@ -1,7 +1,7 @@
 /* App shell: routing, drawer, chrome, boot. */
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import { useStore, applyBoot, getState, clearFlash, startTimerSync } from './store.js';
+import { useStore, applyBoot, getState, clearFlash, startTimerSync, loadGame } from './store.js';
 import { api } from './api.js';
 import { useRoute, navigate, patchRoute, initRouter } from './router.js';
 import { openRecord, getListOrder, closeDrawer } from './nav.js';
@@ -14,10 +14,12 @@ import { IntakeWizard } from './intake.jsx';
 import { Reports, Settings } from './reports.jsx';
 import { PeerReviewQueue } from './review.jsx';
 import { Guide } from './help.jsx';
+import { GameTab } from './game.jsx';
+import { useSkin, loadSkinFonts } from './skins.js';
 
 const VIEW_TITLES = {
   home: 'Home', inbox: 'Inbox', 'my-tasks': 'My Tasks', 'peer-review': 'Peer Review', guide: 'Guide', pros: 'Pros', projects: 'Projects', templates: 'Templates',
-  reports: 'Reports', archive: 'Archive', settings: 'Settings',
+  reports: 'Reports', archive: 'Archive', settings: 'Settings', game: 'Game',
 };
 
 function DetailDrawer({ drawer }) {
@@ -82,9 +84,22 @@ function App() {
   const user = useStore((s) => s.user);
 
   React.useEffect(() => { applyAccent(prefs.accent); }, [prefs.accent]);
+  const skin = useSkin();
+  const dark = skin ? skin.dark : !!prefs.dark;
   React.useEffect(() => {
-    document.body.classList.toggle('tm-dark', !!prefs.dark);
-  }, [prefs.dark]);
+    const b = document.body.classList;
+    b.toggle('tm-dark', dark);
+    b.toggle('tm-skinned', !!skin);
+    Array.from(b).forEach((c) => { if (c.indexOf('skin-') === 0) b.remove(c); });
+    if (skin) { b.add('skin-' + skin.id); loadSkinFonts(skin); }
+  }, [dark, skin]);
+  // Points refresh every few minutes while a skin is on.
+  React.useEffect(() => {
+    if (!skin) return undefined;
+    loadGame();
+    const t = setInterval(() => { if (!document.hidden) loadGame(); }, 5 * 60 * 1000);
+    return () => clearInterval(t);
+  }, [!!skin]);
 
   const view = route.view;
   // Inline banners belong to the screen they were raised for; drop stale ones on navigation.
@@ -102,7 +117,7 @@ function App() {
       case 'pro': return [{ label: 'Pros', onClick: () => navigate({ view: 'pros' }) }, { label: pro ? pro.business_name : route.id }];
       case 'project': return [{ label: 'Projects', onClick: () => navigate({ view: 'projects' }) }, { label: project ? project.business_name + ' · TY' + project.tax_year : route.id }];
       case 'intake': return [{ label: 'Inbox', onClick: () => navigate({ view: 'inbox' }) }, { label: 'Onboarding' + (intakePro ? ' · ' + intakePro.business_name : '') }];
-      default: return [{ label: VIEW_TITLES[view] || 'Home' }];
+      default: return [{ label: (skin && (view === 'game' ? skin.game : skin.nav[view])) || VIEW_TITLES[view] || 'Home' }];
     }
   })();
 
@@ -117,6 +132,7 @@ function App() {
       case 'my-tasks': return <MyTasks />;
       case 'peer-review': return <PeerReviewQueue />;
       case 'guide': return <Guide />;
+      case 'game': return skin ? <GameTab skin={skin} /> : <Home />;
       case 'pros': return <ProsList />;
       case 'projects': return <ProjectsList />;
       case 'pro': return <ProDetail key={route.id} orgId={route.id} />;
@@ -131,7 +147,7 @@ function App() {
   })();
 
   const collapsed = prefs.nav !== 'top' && (prefs.sidebar_collapsed || prefs.nav === 'collapsed-sidebar');
-  const cls = 'app' + (collapsed ? ' collapsed' : '') + (prefs.dark ? ' dark' : '') + (prefs.nav === 'top' ? ' nav-top' : '') + (route.drawer ? ' drawer-open' : '');
+  const cls = 'app' + (collapsed ? ' collapsed' : '') + (dark ? ' dark' : '') + (skin ? ' skinned skin-' + skin.id : '') + (prefs.nav === 'top' ? ' nav-top' : '') + (route.drawer ? ' drawer-open' : '');
 
   return (
     <div className={cls} data-density={prefs.density || 'cozy'} data-pill={prefs.pill || 'filled'} data-tasks="spreadsheet">

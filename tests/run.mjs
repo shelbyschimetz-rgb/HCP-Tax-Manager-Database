@@ -1029,6 +1029,33 @@ test('timer: stop uses the click time, a repeat stop adds nothing, short session
   assert.equal(gas.call('stopTimer', { entry_id: odd.entry_id, at: '1999-01-01T00:00:00Z' }, PREP).duration_min, 1);
 });
 
+test('contest: points from on-time tasks and stage moves, team split, skin pref, admin can turn it off', () => {
+  const gas = fresh();
+  gas.call('createPro', { fields: { org_id: '61', business_name: 'Game Co', assigned_advisor_email: ADV_A } });
+  const { tasks, project } = gas.call('createProject', { fields: { org_id: '61', filing_type: 'S_CORP', tax_year: 2025, tax_preparer_email: PREP } });
+  const mine = tasks.filter(t => t.assignee_email === PREP);
+  gas.call('updateTask', { task_id: mine[0].task_id, patch: { due_date: '2099-01-01' } }, PREP);
+  gas.call('setTaskStatus', { task_id: mine[0].task_id, status: 'DONE' }, PREP);
+  gas.call('updateProject', { project_id: project.project_id, patch: { pipeline_status: 'DOC_GATHERING' } }, PREP);
+  const g = gas.call('getGame', {}, PREP);
+  assert.equal(g.enabled, true);
+  const me = g.people.find(p => p.email === PREP);
+  assert.equal(me.breakdown.tasks, 10, 'on-time task is worth 10');
+  assert.equal(me.breakdown.stages, 20, 'a forward stage move is worth 20');
+  assert.equal(me.points, 30);
+  assert.equal(g.people[0].email, PREP, 'leader first');
+  assert.equal(me.team, 'B');
+  assert.equal(g.people.find(p => p.email === ADV_A).team, 'A', 'advisors default to team A');
+  assert.equal(g.teams.B, 30);
+  assert.ok(me.badges.find(b => b.id === 'ontime').have === 1);
+  gas.call('savePrefs', { prefs: { skin: 'seance' } }, PREP);
+  assert.equal(gas.call('bootstrap', {}, PREP).prefs.skin, 'seance');
+  assert.throws(() => gas.call('saveSettings', { settings: { game_end: 'Oct 31' } }, ADMIN), /2026-10-31/);
+  gas.call('saveSettings', { settings: { game_enabled: false } }, ADMIN);
+  assert.equal(gas.call('getGame', {}, PREP).enabled, false);
+  assert.equal(gas.call('bootstrap', {}, PREP).config.game_enabled, false);
+});
+
 /* ------------------------------------------------------------------ */
 
 let failed = 0;

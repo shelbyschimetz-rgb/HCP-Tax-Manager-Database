@@ -5,6 +5,7 @@ import { useStore, savePrefs, refreshAll, stopTimer } from './store.js';
 import { navigate, useRoute } from './router.js';
 import { FeedbackButton } from './help.jsx';
 import { timeAgo, fmtElapsed, ROLE_LABELS, cx } from './util.js';
+import { SKINS, SKIN_ORDER, useSkin } from './skins.js';
 
 const NAV = [
   { id: 'home', label: 'Home', icon: 'home' },
@@ -46,8 +47,18 @@ export function useCounts() {
 
 function go(view, extra) { navigate({ view, ...(extra || {}) }); }
 
+/** Top nav items under the active skin: themed names, plus the Game tab. */
+function useNav() {
+  const skin = useSkin();
+  return React.useMemo(() => {
+    if (!skin) return NAV;
+    return [...NAV.map((n) => (skin.nav[n.id] ? { ...n, label: skin.nav[n.id] } : n)), { id: 'game', label: skin.game, icon: 'trophy' }];
+  }, [skin]);
+}
+
 export function Sidebar({ active }) {
   const counts = useCounts();
+  const NAV = useNav();
   const user = useStore((s) => s.user);
   const prefs = useStore((s) => s.prefs);
   const collapsed = prefs.sidebar_collapsed || prefs.nav === 'collapsed-sidebar';
@@ -136,6 +147,7 @@ export function Sidebar({ active }) {
 
 export function TopNav({ active }) {
   const counts = useCounts();
+  const NAV = useNav();
   const user = useStore((s) => s.user);
   const items = [...NAV, ...NAV_WORK, ...(user.admin ? [{ id: 'settings', label: 'Settings', icon: 'settings' }] : [])];
   return (
@@ -257,6 +269,8 @@ export function Topbar({ crumbs, onOpenPro }) {
         )}
       </div>
       <div className="tb-actions">
+        <PointsChip />
+        <SkinPicker />
         <TimerChip />
         <SyncPill />
         <FeedbackButton />
@@ -265,6 +279,34 @@ export function Topbar({ crumbs, onOpenPro }) {
         <PrefsMenu />
       </div>
     </div>
+  );
+}
+
+/** Per-person contest skin; hidden when an admin turns the contest off. */
+export function SkinPicker() {
+  const prefs = useStore((s) => s.prefs);
+  const enabled = useStore((s) => s.config.game_enabled !== false);
+  if (!enabled) return null;
+  return (
+    <label className="tb-skin" title="Pick a contest skin (only changes how the app looks for you)">
+      <select aria-label="Skin" value={SKINS[prefs.skin] ? prefs.skin : ''} onChange={(e) => savePrefs({ skin: e.target.value })}>
+        <option value="">Classic (no skin)</option>
+        {SKIN_ORDER.map((id) => <option key={id} value={id}>{SKINS[id].name}</option>)}
+      </select>
+    </label>
+  );
+}
+
+function PointsChip() {
+  const skin = useSkin();
+  const game = useStore((s) => s.game);
+  const me = useStore((s) => s.user && s.user.email);
+  if (!skin || !game || !game.enabled) return null;
+  const mine = (game.people || []).find((p) => p.email === me);
+  return (
+    <button className="tb-points" title={'Your ' + skin.points + ' this contest — open ' + skin.game} onClick={() => go('game')}>
+      <Icon name="trophy" size={13} /> {(mine ? mine.points : 0).toLocaleString()} {skin.points}
+    </button>
   );
 }
 

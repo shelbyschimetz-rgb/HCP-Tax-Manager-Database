@@ -77,7 +77,7 @@ const BUNDLE_LOADER = String.raw`(function () {
       .appBundle();
   } else { fail('The app code is missing from the page.'); }
 })();`;
-const css = ['hcp-tokens.css', 'styles.css', 'extras.css']
+const css = ['hcp-tokens.css', 'styles.css', 'extras.css', 'skins-base.css', 'skins.css']
   .map((f) => `/* ${f} */\n` + fs.readFileSync(path.join(ROOT, 'src/client/styles', f), 'utf8').replace(/^@import url\([^)]*\);\s*$/m, ''))
   .join('\n');
 

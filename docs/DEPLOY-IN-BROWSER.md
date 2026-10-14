@@ -95,6 +95,11 @@ The feedback email and the morning digest need two more Google permissions: send
 - **Settings → Feedback inbox:** choose who gets the Monday email. It defaults to the account that deployed the app.
 - **Settings → Morning digest:** choose Slack or Email. For Slack, a Slack admin creates an app with the Bot Token Scopes `chat:write`, `users:read` and `users:read.email`, installs it to the workspace, and gives you the **Bot User OAuth Token** (it starts with `xoxb-`). Paste it, click **Save digest settings**, then **Send me a test**.
 
+## Contest skins
+Everyone has a skin dropdown in the top bar (seven themes plus Classic); the choice is saved per person. A skin adds a Game tab with live points, a leaderboard and badges. Points are counted from real work, so there's nothing extra to track.
+- **Settings → Contest & skins:** turn the contest on or off for everyone, and set the start and end dates, the team goal and the prize.
+- **Aliens vs. Auditors teams:** the Identity tab now has a `team` column. Put `A` (Aliens) or `B` (Auditors). Left blank, advisors are Aliens and everyone else is an Auditor. The column is added automatically the first time the new code runs.
+
 ## Peer review
 Peer review replaces the Slack "Tax QA Peer Review" workflow. Preparers submit from a project's **Peer review** tab, and reviewers claim from **Peer Review** in the sidebar. Only people with `PEER_REVIEWER` (or EXEC/ADMIN) in their Identity roles can claim reviews, so add that role to every reviewer before you retire the Slack workflow.
 

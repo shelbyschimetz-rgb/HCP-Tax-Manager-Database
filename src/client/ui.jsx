@@ -2,6 +2,7 @@
 import React from 'react';
 import { useStore, dismissToast, clearFlash } from './store.js';
 import { label, cx, ENUMS } from './util.js';
+import { useSkin, stageName } from './skins.js';
 
 export const Icon = ({ name, size = 16, ...rest }) => {
   const props = { width: size, height: size, viewBox: '0 0 24 24', fill: 'none', stroke: 'currentColor', strokeWidth: 1.75, strokeLinecap: 'round', strokeLinejoin: 'round', ...rest };
@@ -50,6 +51,7 @@ export const Icon = ({ name, size = 16, ...rest }) => {
     case 'upload': return <svg {...props}><path d="M12 15V3" /><polyline points="7 8 12 3 17 8" /><line x1="4" y1="21" x2="20" y2="21" /></svg>;
     case 'star': return <svg {...props}><polygon points="12 2 15 9 22 9.5 17 14.5 18.5 22 12 18 5.5 22 7 14.5 2 9.5 9 9 12 2" /></svg>;
     case 'template': return <svg {...props}><rect x="3" y="4" width="18" height="16" rx="2" /><line x1="3" y1="9" x2="21" y2="9" /><line x1="9" y1="9" x2="9" y2="20" /></svg>;
+    case 'trophy': return <svg {...props}><path d="M8 4h8v5a4 4 0 01-8 0V4z" /><path d="M8 6H5a3 3 0 003 4M16 6h3a3 3 0 01-3 4M12 13v4M8 21h8M9 17h6" /></svg>;
     case 'eye': return <svg {...props}><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="3" /></svg>;
     case 'wand': return <svg {...props}><path d="M15 4l5 5L9 20H4v-5L15 4z" /><line x1="13" y1="6" x2="18" y2="11" /></svg>;
     case 'history': return <svg {...props}><polyline points="3 12 3 6 9 6" /><path d="M3.5 9.5a9 9 0 11-2 5" /><polyline points="12 8 12 12 15 14" /></svg>;
@@ -110,9 +112,12 @@ export function AvatarStack({ emails, max = 3 }) {
 }
 
 export function Pill({ kind, value }) {
+  const skin = useSkin();
   if (!value) return <span className="muted">—</span>;
   const cls = kind === 'lifecycle' ? `pill lc-${value}` : `pill pp-${value}`;
-  return <span className={cls}>{label(kind === 'lifecycle' ? 'LIFECYCLE_STATUS' : 'PIPELINE_STATUS', value)}</span>;
+  const real = label(kind === 'lifecycle' ? 'LIFECYCLE_STATUS' : 'PIPELINE_STATUS', value);
+  const shown = kind === 'lifecycle' ? real : stageName(skin, value, real);
+  return <span className={cls} title={shown !== real ? real : undefined}>{shown}</span>;
 }
 
 export function ProgressBar({ pct }) {

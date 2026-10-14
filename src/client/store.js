@@ -21,6 +21,7 @@ let state = {
   inbox: [],
   reviews: [],
   timer: null,
+  game: null,
   config: {},
   details: { pro: {}, project: {} },
   sync: { phase: 'idle', label: '', ts: Date.now(), retry: null },
@@ -778,3 +779,13 @@ export async function peerReviewAction(action, payload, what) {
 }
 
 export { api };
+
+/* ---------------- contest ---------------- */
+
+let gameLoading = null;
+export function loadGame() {
+  if (gameLoading) return gameLoading;
+  gameLoading = api('getGame').then((g) => { setState({ game: g }); return g; })
+    .catch(() => null).finally(() => { gameLoading = null; });
+  return gameLoading;
+}

@@ -1,0 +1,113 @@
+/* Contest skins: palettes (on body so modals pick them up too), fonts, and a few signature touches. */
+
+body.skin-fellowship {
+  --sk-bg: #E9DFC4; --sk-panel: #F3EAD3; --sk-panel-2: #DCCFAE; --sk-border: #C5B48A;
+  --sk-fg: #2B2416; --sk-fg-2: #5C4E34; --sk-accent: #2F4A35; --sk-accent-soft: #2F4A35; --sk-accent-soft-fg: #F3EAD3;
+  --primary-main: #2F4A35; --primary-dark: #1F3324; --primary-50: #DCCFAE; --info-main: #2F4A35;
+  --sk-display: 'Cinzel', Georgia, serif; --sk-body: 'EB Garamond', Georgia, serif;
+  background: #E9DFC4;
+}
+body.skin-halloween {
+  --sk-bg: #17121F; --sk-panel: #241B30; --sk-panel-2: #2F2440; --sk-border: #3A2D4C;
+  --sk-fg: #F3EDE2; --sk-fg-2: #CFC4DD; --sk-accent: #F28A2E; --sk-accent-soft: #F28A2E; --sk-accent-soft-fg: #17121F;
+  --primary-main: #C9631A; --primary-dark: #9A4A10; --primary-50: #3A2D4C; --info-main: #F28A2E;
+  --sk-display: 'Creepster', 'Nunito', cursive; --sk-body: 'Nunito', system-ui, sans-serif;
+  background: #17121F;
+}
+body.skin-aliens {
+  --sk-bg: #0B1026; --sk-panel: #111938; --sk-panel-2: #1C2A5E; --sk-border: #2A3566;
+  --sk-fg: #E6ECFF; --sk-fg-2: #B7C0E4; --sk-accent: #6CF2A3; --sk-accent-soft: #1C2A5E; --sk-accent-soft-fg: #6CF2A3;
+  --primary-main: #1F8A5B; --primary-dark: #146B45; --primary-50: #1C2A5E; --info-main: #49D3FF;
+  --sk-display: 'Orbitron', 'Exo 2', sans-serif; --sk-body: 'Exo 2', system-ui, sans-serif;
+  background: #0B1026;
+}
+body.skin-cozy {
+  --sk-bg: #F3EEFB; --sk-panel: #FFFFFF; --sk-panel-2: #EAE3F7; --sk-border: #DCD1F0;
+  --sk-fg: #3E3A4A; --sk-fg-2: #5E5870; --sk-accent: #B4466E; --sk-accent-soft: #FCE3EB; --sk-accent-soft-fg: #8A3354;
+  --primary-main: #B4466E; --primary-dark: #8A3354; --primary-50: #FCE3EB; --info-main: #B4466E;
+  --sk-display: 'Fredoka', 'Nunito', sans-serif; --sk-body: 'Nunito', system-ui, sans-serif;
+  background: #F3EEFB;
+}
+body.skin-arcade {
+  --sk-bg: #0E0E14; --sk-panel: #17172A; --sk-panel-2: #22223A; --sk-border: #2B2B45;
+  --sk-fg: #F2F2F7; --sk-fg-2: #B9B9D0; --sk-accent: #FFD319; --sk-accent-soft: #FFD319; --sk-accent-soft-fg: #0E0E14;
+  --primary-main: #D61F4B; --primary-dark: #A8163A; --primary-50: #2B2B45; --info-main: #2DE2E6;
+  --sk-display: 'Press Start 2P', monospace; --sk-body: 'VT323', ui-monospace, monospace;
+  background: #0E0E14;
+}
+body.skin-heist {
+  --sk-bg: #16181D; --sk-panel: #1E2128; --sk-panel-2: #2B303B; --sk-border: #333844;
+  --sk-fg: #ECE7DC; --sk-fg-2: #A9AFBC; --sk-accent: #C9A15B; --sk-accent-soft: #C9A15B; --sk-accent-soft-fg: #16181D;
+  --primary-main: #8C6A2E; --primary-dark: #6B4F1F; --primary-50: #2B303B; --info-main: #C9A15B;
+  --sk-display: 'Bebas Neue', 'Archivo', sans-serif; --sk-body: 'Archivo', system-ui, sans-serif;
+  background: #16181D;
+}
+body.skin-seance {
+  --sk-bg: #1A1410; --sk-panel: #241C16; --sk-panel-2: #33281F; --sk-border: #4A3B2C;
+  --sk-fg: #F1E4C8; --sk-fg-2: #C9B48F; --sk-accent: #E0B654; --sk-accent-soft: #E0B654; --sk-accent-soft-fg: #1A1410;
+  --primary-main: #9C6B2E; --primary-dark: #74501F; --primary-50: #33281F; --info-main: #E0B654;
+  --sk-display: 'IM Fell English SC', Georgia, serif; --sk-body: 'Cormorant Garamond', Georgia, serif;
+  background: #1A1410;
+}
+
+/* Type */
+.app.skinned, body.tm-skinned .tm-modal { font-family: var(--sk-body); }
+.app.skin-arcade, body.skin-arcade .tm-modal { font-size: 17px; }
+.app.skin-seance, body.skin-seance .tm-modal { font-size: 15.5px; }
+.app.skinned .ph-title, .app.skinned .home-greet, .app.skinned .det-card-head .title, .app.skinned .sb-title,
+.app.skinned .tm-h3, .app.skinned .game-title, body.tm-skinned .tm-modal-head .title {
+  font-family: var(--sk-display); letter-spacing: 0.02em;
+}
+.app.skin-arcade .ph-title, .app.skin-arcade .home-greet, .app.skin-arcade .det-card-head .title, .app.skin-arcade .game-title { font-size: 15px; line-height: 1.6; }
+.app.skin-heist .ph-title, .app.skin-heist .home-greet, .app.skin-heist .game-title { letter-spacing: 0.06em; font-size: 30px; }
+
+/* Signature touches */
+.app.skinned .topbar { border-bottom: 2px solid var(--sk-accent); }
+.app.skinned .sb-item.active { font-weight: 700; }
+.app.skinned .sb-logo { background: var(--sk-accent); color: var(--sk-accent-soft-fg); }
+.app.skinned .progress > div, .app.skinned .tk-section-head .progress > div { background: var(--sk-accent); }
+.app.skin-arcade .det-card, .app.skin-arcade .btn, .app.skin-arcade .pill, .app.skin-arcade .home-stat, .app.skin-arcade .table-wrap { border-radius: 0; }
+.app.skin-heist .det-card, .app.skin-heist .table-wrap, .app.skin-heist .home-stat { border-radius: 4px; }
+.app.skin-cozy .det-card, .app.skin-cozy .home-stat, .app.skin-cozy .table-wrap { border-radius: 16px; }
+
+/* Top-bar skin picker + points chip */
+.tb-skin { display: inline-flex; align-items: center; gap: 6px; }
+.tb-skin select { font: inherit; font-size: 13px; padding: 5px 8px; border-radius: 8px; border: 1px solid var(--border-light); background: transparent; color: inherit; cursor: pointer; max-width: 150px; }
+@media (max-width: 1500px) { .tb-skin select { max-width: 120px; } .app.skinned .tb-search { max-width: 280px; } }
+.app.skinned .tb-skin select { border-color: var(--sk-border); color: var(--sk-fg); }
+.app.skinned .tb-skin option { background: var(--sk-panel); color: var(--sk-fg); }
+.tb-points { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px; border: 0; cursor: pointer; font: inherit; font-size: 13px; font-weight: 700; background: var(--sk-accent, var(--primary-main)); color: var(--sk-accent-soft-fg, #fff); white-space: nowrap; }
+.app.skin-aliens .tb-points { background: transparent; border: 1px solid var(--sk-accent); color: var(--sk-accent); }
+
+/* Game tab */
+.game-grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 1000px) { .game-grid { grid-template-columns: minmax(0, 1fr); } }
+.game-card { background: var(--sk-panel, #fff); border: 1px solid var(--sk-border, var(--border-light)); border-radius: 12px; padding: 18px; display: flex; flex-direction: column; gap: 12px; }
+.game-meter { height: 18px; border-radius: 9px; background: var(--sk-panel-2, var(--grey-100)); overflow: hidden; display: flex; }
+.game-meter > span { display: block; height: 100%; background: var(--sk-accent, var(--primary-main)); }
+.game-meter > span.b { background: #FFB648; }
+.game-row { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; gap: 10px; align-items: center; padding: 8px 10px; border-radius: 8px; }
+.game-row.me { background: var(--sk-panel-2, var(--primary-50)); font-weight: 700; }
+.game-rank { font-family: var(--sk-display, inherit); color: var(--sk-accent, var(--primary-main)); font-weight: 700; text-align: center; }
+.game-badges { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+@media (max-width: 700px) { .game-badges { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.game-badge { border: 1px solid var(--sk-border, var(--border-light)); border-radius: 10px; padding: 10px; font-size: 13px; display: flex; flex-direction: column; gap: 4px; }
+.game-badge.earned { border-color: var(--sk-accent, var(--primary-main)); background: var(--sk-panel-2, var(--primary-50)); }
+.game-badge .name { font-weight: 700; color: var(--sk-accent, var(--primary-main)); }
+.game-badge:not(.earned) .name { color: var(--sk-fg-2, var(--fg-secondary)); }
+.game-badge .bar { height: 4px; border-radius: 2px; background: var(--sk-border, var(--grey-200)); overflow: hidden; }
+.game-badge .bar > span { display: block; height: 100%; background: var(--sk-accent, var(--primary-main)); }
+.game-rules { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 16px; font-size: 13.5px; }
+.game-rules .pts { font-weight: 700; color: var(--sk-accent, var(--primary-main)); text-align: right; white-space: nowrap; }
+.game-muted { color: var(--sk-fg-2, var(--fg-secondary)); font-size: 13px; }
+
+/* Séance: candlelit vignette and the spirit board */
+.app.skin-seance .content { background: radial-gradient(ellipse at 50% 0%, rgba(224, 182, 84, 0.08), transparent 60%); }
+.app.skin-seance .topbar { border-bottom: 1px solid var(--sk-accent); box-shadow: 0 1px 12px rgba(224, 182, 84, 0.15); }
+.spirit-board { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 18px 12px; border: 2px solid var(--sk-border); border-radius: 50% / 18%; background: radial-gradient(ellipse at center, #3A2D22, #241C16 70%); }
+.spirit-board .yn { display: flex; justify-content: space-between; width: 80%; font-family: var(--sk-display); font-size: 20px; color: var(--sk-fg-2); }
+.spirit-board .row { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; font-family: var(--sk-display); font-size: 22px; }
+.spirit-board .row span { color: #5E4C39; transition: color 300ms, text-shadow 300ms; }
+.spirit-board .row span.lit { color: var(--sk-accent); text-shadow: 0 0 8px rgba(224, 182, 84, 0.7); }
+.spirit-board .bye { font-family: var(--sk-display); font-size: 18px; letter-spacing: 0.2em; color: var(--sk-fg-2); }
+.spirit-board .bye.lit { color: var(--sk-accent); text-shadow: 0 0 8px rgba(224, 182, 84, 0.7); }

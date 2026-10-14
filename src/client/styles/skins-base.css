@@ -1,0 +1,92 @@
+/* GENERATED from the dark-mode rules (scratch gen-skin-css.py): the same surfaces, painted with the active skin's --sk-* variables. */
+.app.skinned {background: var(--sk-bg); }
+.app.skinned {background: var(--sk-bg); color: var(--sk-fg); }
+.app.skinned .sidebar {background: var(--sk-panel); border-color: var(--sk-border); color: var(--sk-fg); }
+.app.skinned .sb-item {color: var(--sk-fg); }
+.app.skinned .sb-item:hover {background: var(--sk-panel-2); }
+.app.skinned .sb-item.active {background: var(--sk-accent-soft); color: var(--sk-accent-soft-fg); }
+.app.skinned .sb-title, .app.skinned .sb-user .name {color: var(--sk-fg); }
+.app.skinned .sb-divider {background: var(--sk-border); }
+.app.skinned .sb-foot {border-color: var(--sk-border); }
+.app.skinned .topbar {background: var(--sk-panel); border-color: var(--sk-border); color: var(--sk-fg); }
+.app.skinned .tb-search input {background: var(--sk-panel-2); color: var(--sk-fg); }
+.app.skinned .tb-search input:focus {background: var(--sk-bg); }
+.app.skinned .tb-icon-btn {color: var(--sk-fg-2); }
+.app.skinned .tb-icon-btn:hover {background: var(--sk-panel-2); color: var(--sk-fg); }
+.app.skinned .tb-crumbs a {color: var(--sk-fg-2); }
+.app.skinned .tb-crumbs .here {color: var(--sk-fg); }
+.app.skinned .content {background: var(--sk-bg); }
+.app.skinned .table-wrap, .app.skinned .det-card, .app.skinned .task-shell, .app.skinned .home-card, .app.skinned .home-stat, .app.skinned .bucket, .app.skinned .tmpl-side, .app.skinned .tmpl-main, .app.skinned .inbox-card, .app.skinned .wiz-side, .app.skinned .wiz-main {background: var(--sk-panel); border-color: var(--sk-border); color: var(--sk-fg); }
+.app.skinned .tbl thead th {background: var(--sk-panel-2); color: var(--sk-fg-2); border-color: var(--sk-border); }
+.app.skinned .tbl tbody td {border-color: var(--sk-panel-2); }
+.app.skinned .tbl tbody tr:hover {background: var(--sk-panel-2); }
+.app.skinned .tbl .pinned {background: var(--sk-panel); }
+.app.skinned .tbl thead .pinned {background: var(--sk-panel-2); }
+.app.skinned .tbl tbody tr:hover .pinned {background: var(--sk-panel-2); }
+.app.skinned .ph-meta, .app.skinned .field .lbl, .app.skinned .home-card-head, .app.skinned .field-grp-head, .app.skinned .tk-section-head .count, .app.skinned .home-stat .label, .app.skinned .meta {color: var(--sk-fg-2); }
+.app.skinned .ph-title, .app.skinned .home-greet, .app.skinned .tk-section-head .title, .app.skinned .det-card-head .title, .app.skinned .home-stat .val, .app.skinned .home-card-head .title {color: var(--sk-fg); }
+.app.skinned .btn {background: var(--sk-panel-2); border-color: var(--sk-border); color: var(--sk-fg); }
+.app.skinned .btn:hover {background: var(--sk-border); }
+.app.skinned .btn.primary {background: var(--primary-main); border-color: var(--primary-main); color: #fff; }
+.app.skinned .btn.subtle {background: transparent; }
+.app.skinned .tk-row:hover {background: var(--sk-panel-2); }
+.app.skinned .tk-section-head {background: var(--sk-panel); border-color: var(--sk-panel-2); }
+.app.skinned .tk-row, .app.skinned .bucket-head {border-color: var(--sk-panel-2); }
+.app.skinned .tk-check {background: var(--sk-bg); border-color: var(--sk-border); }
+.app.skinned .field .val:hover {background: var(--sk-panel-2); }
+.app.skinned .view-tabs {border-color: var(--sk-border); }
+.app.skinned .view-tab {color: var(--sk-fg-2); }
+.app.skinned .view-tab.active {color: var(--sk-accent); border-bottom-color: var(--sk-accent); }
+.app.skinned .tool-chip {color: var(--sk-fg-2); }
+.app.skinned .tool-chip:hover {background: var(--sk-panel-2); color: var(--sk-fg); }
+.app.skinned .saved-view {color: var(--sk-fg-2); }
+.app.skinned .saved-view:hover {background: var(--sk-panel-2); color: var(--sk-fg); }
+.app.skinned .saved-view.active {background: var(--sk-bg); color: var(--sk-accent); border-color: var(--sk-accent); }
+.app.skinned .kb-col {background: var(--sk-bg); }
+.app.skinned .kb-card {background: var(--sk-panel); border-color: var(--sk-border); }
+.app.skinned .empty {color: var(--sk-fg-2); }
+.app.skinned .empty h3 {color: var(--sk-fg); }
+.app.skinned .empty .icon-bg {background: var(--sk-accent-soft); color: var(--sk-accent-soft-fg); }
+.app.skinned .ai-card .body {color: var(--sk-fg); }
+.app.skinned .tk-checklist {background: var(--sk-bg); }
+.app.skinned .wiz-field input, .app.skinned .wiz-field select, .app.skinned .wiz-field textarea {background: var(--sk-bg); border-color: var(--sk-border); color: var(--sk-fg); }
+.app.skinned .tmpl-tbl th, .app.skinned .tmpl-tbl .section-row td {background: var(--sk-panel-2); color: var(--sk-fg-2); border-color: var(--sk-border); }
+.app.skinned .tmpl-tbl td {border-color: var(--sk-panel-2); }
+.app.skinned .tmpl-tbl tr:hover {background: var(--sk-panel-2); }
+.app.skinned .lb-row {background: var(--sk-panel); border-color: var(--sk-border); }
+.app.skinned .lb-row:hover {background: var(--sk-panel-2); }
+.app.skinned .lb-row.picked {background: var(--sk-accent-soft); border-color: var(--primary-main); }
+.app.skinned .note-input {background: var(--sk-bg); border-color: var(--sk-border); color: var(--sk-fg); }
+.app.skinned .note-entry {border-color: var(--sk-panel-2); }
+.app.skinned .note-body, .app.skinned .note-meta strong {color: var(--sk-fg); }
+body.tm-skinned {background: var(--sk-bg); }
+.app.skinned.nav-top .topnav-row {background: var(--sk-panel); border-color: var(--sk-border); }
+.app.skinned .tm-input, .app.skinned .tm-inline-input {background: var(--sk-bg); color: var(--sk-fg); border-color: var(--sk-border); }
+.app.skinned ~ .tm-modal-backdrop .tm-modal, body.tm-skinned .tm-modal {background: var(--sk-panel); color: var(--sk-fg); }
+.app.skinned .tm-empty-card {background: var(--sk-panel); border-color: var(--sk-border); }
+.app.skinned .tbl .group-header td, .app.skinned .tbl tr.group-header {background: var(--sk-panel-2); color: var(--sk-fg); }
+.app.skinned .popover, .app.skinned .tb-search .results {background: var(--sk-panel); border-color: var(--sk-border); color: var(--sk-fg); }
+.app.skinned .tm-menu-item {color: var(--sk-fg); }
+.app.skinned .tm-menu-item:hover, .app.skinned .tm-editable:hover {background: var(--sk-panel-2); }
+.app.skinned .kb-col {background: var(--sk-panel); }
+.app.skinned .kb-card {background: var(--sk-panel-2); border-color: var(--sk-border); color: var(--sk-fg); }
+.app.skinned .saved-view, .app.skinned .tool-chip {color: var(--sk-fg-2); }
+.app.skinned .tmpl-tbl th, .app.skinned .tmpl-tbl .section-row td {background: var(--sk-panel-2); color: var(--sk-fg-2); border-color: var(--sk-border); }
+.app.skinned .tmpl-tbl td {border-color: var(--sk-panel-2); }
+.app.skinned .tm-seg {background: var(--sk-bg); border-color: var(--sk-border); }
+.app.skinned .tm-proj-line {background: var(--sk-panel); border-color: var(--sk-border); }
+.app.skinned .note-input, .app.skinned .wiz-field input, .app.skinned .wiz-field select, .app.skinned .wiz-field textarea {background: var(--sk-bg); color: var(--sk-fg); border-color: var(--sk-border); }
+body.tm-skinned .tm-modal .lbl, .app.skinned .wiz-field .lbl, body.tm-skinned .tm-modal .hint, .app.skinned .wiz-field .hint {color: var(--sk-fg-2); }
+body.tm-skinned .tm-modal-head, body.tm-skinned .tm-modal-foot {border-color: var(--sk-border); }
+.app.skinned .pr-facts, .app.skinned .pr-comments {background: var(--sk-panel); border-color: var(--sk-border); }
+.app.skinned .pr-addon {background: var(--sk-bg); border-color: var(--sk-border); color: var(--sk-fg); }
+.app.skinned .pr-addon.on {background: var(--sk-accent-soft); border-color: var(--sk-accent); color: var(--sk-accent-soft-fg); }
+.app.skinned .pr-banner-body {color: var(--sk-fg); }
+body.tm-skinned .tm-modal .pr-facts {background: var(--sk-panel); border-color: var(--sk-border); }
+body.tm-skinned .tm-modal .pr-addon {background: var(--sk-bg); border-color: var(--sk-border); color: var(--sk-fg); }
+body.tm-skinned .tm-modal .pr-addon.on {background: var(--sk-accent-soft); border-color: var(--sk-accent); color: var(--sk-accent-soft-fg); }
+.app.skinned .tm-assign select {color: var(--sk-fg); }
+.app.skinned .tm-assign select:hover {background: var(--sk-panel-2); border-color: var(--sk-border); }
+.app.skinned .tm-assign option {background: var(--sk-panel); }
+.app.skinned .guide-frame {background: var(--sk-bg); border-color: var(--sk-border); }
+.app.skinned .digest-preview, .app.skinned .fb-item {background: var(--sk-panel); border-color: var(--sk-border); }

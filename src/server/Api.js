@@ -82,6 +82,9 @@ var API_ACTIONS = {
   stopTimer: M(function (p) { return Timer.stop(p.entry_id, p.at); }),
   getTimer: R(function (p, me) { return Timer.current(me.email); }),
 
+  /* ---- contest ---- */
+  getGame: R(function () { return Game.scores(); }),
+
   /* ---- feedback + morning digest ---- */
   submitFeedback: M(function (p) { return Feedback.submit(p); }),
   feedbackStatus: ADMIN_R(function () { return Feedback.status(); }),
@@ -140,7 +143,7 @@ var API_ACTIONS = {
 var Prefs = {
   DEFAULTS: {
     sidebar_collapsed: false, accent: 'blue', density: 'cozy', dark: false, pill: 'filled', nav: 'sidebar',
-    detail_layout: 'drawer', feedback: 'inline', saved_views: { pros: [], projects: [] },
+    detail_layout: 'drawer', feedback: 'inline', skin: '', saved_views: { pros: [], projects: [] },
     recently_visited: { pros: [], projects: [] }, starred: { pros: [], projects: [] },
   },
   get: function (email) {
@@ -228,6 +231,7 @@ var Boot = {
         timer_max_hours: Number(getProp_(PROP.TIMER_MAX_HOURS, DEFAULTS.TIMER_MAX_HOURS)),
         sfdc_last_sync: getProp_(PROP.LAST_SFDC_SYNC),
         sfdc_first_year: Sfdc.firstYear(),
+        game_enabled: Game.settings().enabled,
         url: Boot.url(),
       },
       server_time: nowIso_(),
@@ -337,6 +341,7 @@ var Boot = {
       triggers: ScriptApp.getProjectTriggers().map(function (t) { return t.getHandlerFunction(); }),
       export: Exports.status(),
       feedback_email: Feedback.recipient(),
+      game: Game.settings(),
       digest: Digest.status(),
       churn: (function () {
         var c = Churn.config();
@@ -373,6 +378,19 @@ var Boot = {
         if (cTab) setProp_(PROP.CHURN_TAB, cTab);
       }
     }
+    if ('game_enabled' in s) setProp_(PROP.GAME_ENABLED, s.game_enabled ? 'true' : 'false');
+    ['game_start', 'game_end'].forEach(function (k) {
+      if (!(k in s)) return;
+      var v = String(s[k] || '').trim();
+      if (v && !/^\d{4}-\d{2}-\d{2}$/.test(v)) throw new AppError('Contest dates look like 2026-10-31.', 'VALIDATION');
+      setProp_(k === 'game_start' ? PROP.GAME_START : PROP.GAME_END, v);
+    });
+    if ('game_goal' in s) {
+      var g = Number(s.game_goal);
+      if (!(g > 0)) throw new AppError('The team goal must be a number of points above 0.', 'VALIDATION');
+      setProp_(PROP.GAME_GOAL, Math.round(g));
+    }
+    if ('game_prize' in s) setProp_(PROP.GAME_PRIZE, String(s.game_prize || '').trim().slice(0, 200));
     if ('feedback_email' in s) setProp_(PROP.FEEDBACK_EMAIL, String(s.feedback_email || '').trim());
     if ('digest_channel' in s) setProp_(PROP.DIGEST_CHANNEL, ['slack', 'email'].indexOf(s.digest_channel) >= 0 ? s.digest_channel : 'off');
     if (s.slack_token) {
