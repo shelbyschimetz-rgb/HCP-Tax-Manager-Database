@@ -8,8 +8,8 @@ import { label, toCSV, downloadCSV, fmtDue, today, cx } from './util.js';
 const OPEN_STAGES = ['IN_QUEUE', 'IN_QUEUE_ESCALATED', 'DOC_GATHERING', 'PREP', 'WFP', 'QA', 'CLIENT_REVIEW', 'FILING_DELIVERY', 'BLOCKED'];
 
 export const STAGE_DEFS = {
-  IN_QUEUE: 'The return exists but work hasn\'t started. Moves on when the advisor kicks off document collection.',
-  IN_QUEUE_ESCALATED: 'A queued return that\'s aging or needs a manager\'s decision.',
+  IN_QUEUE: 'Enough documents have been collected that the work can move from the advisor to the tax preparer for backend input work.',
+  IN_QUEUE_ESCALATED: 'Same as In queue, but the advisor is asking for this return to move to the top of the preparer\'s priority list.',
   DOC_GATHERING: 'Collecting documents and confirming the books. Moves on when the preparer has checked the documents.',
   PREP: 'The return is being built. Moves on when the preparer submits it for peer review (or to Waiting for pro if items are outstanding).',
   WFP: 'Waiting for pro: prep is paused on something only the pro can provide.',
