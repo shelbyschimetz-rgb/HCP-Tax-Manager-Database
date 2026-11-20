@@ -15,6 +15,44 @@ function avg_(nums) {
 }
 
 var Reports = {
+  /**
+   * One row per finished stay in a stage, built from ProjectStageHistory:
+   * the stay starts when the return entered the stage and ends when it left.
+   *   partial — the clock didn't start when the return really entered the stage:
+   *             it was created (e.g. imported from Asana) already partway through
+   *             the pipeline, so the time before Tax Manager is missing and the
+   *             stay only counts from the import date.
+   *   quick   — under an hour: usually catch-up clicks moving a return through
+   *             several stages at once, not real time in the stage.
+   * advisor_email is the advisor on the return when it left the stage;
+   * moved_by is who moved it.
+   */
+  intervals: function (history, projBy) {
+    var byProject = {};
+    history.forEach(function (h) { (byProject[h.project_id] = byProject[h.project_id] || []).push(h); });
+    var out = [];
+    Object.keys(byProject).forEach(function (pid) {
+      var list = byProject[pid].sort(function (a, b) { return a.changed_at < b.changed_at ? -1 : 1; });
+      var p = projBy[pid];
+      if (!p) return; // archived or removed
+      list.forEach(function (h, i) {
+        if (!h.from_stage) return;
+        var prev = i > 0 ? list[i - 1] : null;
+        var start = prev ? prev.changed_at : (p.created_at || '');
+        var days = daysBetween_(start, h.changed_at);
+        if (days == null) days = h.days_in_prev_stage;
+        if (days == null) return;
+        var startedMidway = !prev || (!prev.from_stage && ['IN_QUEUE', 'IN_QUEUE_ESCALATED'].indexOf(prev.to_stage) < 0 && i === 1);
+        out.push({
+          project_id: pid, stage: h.from_stage, to_stage: h.to_stage, started_at: start, ended_at: h.changed_at,
+          days: days, advisor_email: h.advisor_email || '', moved_by: h.changed_by || '',
+          partial: !!startedMidway, quick: days < 1 / 24,
+        });
+      });
+    });
+    return out;
+  },
+
   all: function () {
     var today = todayIso_();
     var year = today.slice(0, 4);
@@ -33,20 +71,26 @@ var Reports = {
       var rows = projects.filter(function (p) { return p.pipeline_status === s; });
       return {
         stage: s, count: rows.length,
-        overdue: rows.filter(function (p) { return p.filing_deadline && p.filing_deadline < today && !p.efile_date; }).length,
+        // the extended deadline applies once an extension is filed
+        overdue: rows.filter(function (p) {
+          var d = p.filing_deadline && (p.extension_filed ? addDays_(p.filing_deadline, 183) : p.filing_deadline);
+          return d && d < today && !p.efile_date;
+        }).length,
       };
     });
 
-    // 2. Stage cycle time (days spent in from_stage), overall + per advisor
+    // 2. Stage cycle time (days spent in from_stage), overall + per advisor.
+    // Only clean stays count: see Reports.intervals for what's left out and why.
+    var intervals = Reports.intervals(history, projBy);
     var byStage = {};
     var advisorSet = {};
-    history.forEach(function (h) {
-      if (h.days_in_prev_stage == null || !h.from_stage) return;
-      var s = byStage[h.from_stage] || (byStage[h.from_stage] = { all: [], adv: {} });
-      s.all.push(h.days_in_prev_stage);
-      if (h.advisor_email) {
-        advisorSet[h.advisor_email] = true;
-        (s.adv[h.advisor_email] = s.adv[h.advisor_email] || []).push(h.days_in_prev_stage);
+    intervals.forEach(function (iv) {
+      if (iv.partial || iv.quick || iv.stage === 'COMPLETE') return;
+      var s = byStage[iv.stage] || (byStage[iv.stage] = { all: [], adv: {} });
+      s.all.push(iv.days);
+      if (iv.advisor_email) {
+        advisorSet[iv.advisor_email] = true;
+        (s.adv[iv.advisor_email] = s.adv[iv.advisor_email] || []).push(iv.days);
       }
     });
     var cycleAdvisors = Object.keys(advisorSet).sort();
@@ -125,6 +169,7 @@ var Reports = {
       generated_at: nowIso_(),
       pipeline: pipeline,
       cycle: { advisors: cycleAdvisors, rows: cycle },
+      intervals: intervals,
       advisor: advisorRows,
       time: time,
       time_by_type: Object.keys(byType).map(function (k) { return { filing_type: k, minutes: byType[k] }; }),

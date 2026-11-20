@@ -31,7 +31,7 @@ function setup() {
 }
 
 /** Shown on the ?diag=1 page so you can tell which code is live. */
-var CODE_VERSION = '2026-10-14 (contest skins)';
+var CODE_VERSION = '2026-11-20 (report drilldowns)';
 
 /**
  * Run this from the Apps Script editor after an update adds permissions.

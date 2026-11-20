@@ -5,6 +5,7 @@ import { useStore, api, mutate, toast, refreshAll, setState } from './store.js';
 import { openRecord } from './nav.js';
 import { label, toCSV, downloadCSV, fmtTsShort, fmtMinutes, relTime, today } from './util.js';
 import { PeerReviewReport } from './review.jsx';
+import { PipelineReport, CycleReport } from './report-views.jsx';
 
 const REPORTS = [
   { id: 'pipeline', label: 'Pipeline snapshot', icon: 'briefcase' },
@@ -54,65 +55,8 @@ export function Reports() {
       {err && <div className="flash error"><Icon name="alert" size={14} /> {err}</div>}
       {!data && !err && <div className="det-card"><div className="muted" style={{ padding: 24 }}>Crunching numbers…</div></div>}
 
-      {data && report === 'pipeline' && (() => {
-        const rows = data.pipeline;
-        const max = Math.max(1, ...rows.map((r) => r.count));
-        return (
-          <div className="det-card">
-            <div className="det-card-head">
-              <div className="title">Pipeline snapshot — open projects by stage</div>
-              <ExportBtn onClick={() => downloadCSV(`pipeline-snapshot-${stamp}.csv`, toCSV(rows, [
-                { key: 'stage', label: 'Stage', value: (r) => label('PIPELINE_STATUS', r.stage) }, { key: 'count', label: 'Open projects' }, { key: 'overdue', label: 'Past deadline' },
-              ]))} />
-            </div>
-            <table className="tmpl-tbl">
-              <thead><tr><th>Stage</th><th style={{ width: 320 }}>Volume</th><th style={{ width: 120 }}>Open</th><th style={{ width: 130 }}>Past deadline</th></tr></thead>
-              <tbody>
-                {rows.map((r) => (
-                  <tr key={r.stage}>
-                    <td><Pill kind="pipeline" value={r.stage} /></td>
-                    <td><Bar value={r.count} max={max} /></td>
-                    <td className="mono">{r.count}</td>
-                    <td>{r.overdue > 0 ? <span style={{ color: 'var(--error-main)', fontWeight: 600 }}>{r.overdue}</span> : <span className="muted">0</span>}</td>
-                  </tr>
-                ))}
-                <tr><td><strong>Total open</strong></td><td /><td className="mono"><strong>{rows.reduce((s, r) => s + r.count, 0)}</strong></td><td className="mono">{rows.reduce((s, r) => s + r.overdue, 0)}</td></tr>
-              </tbody>
-            </table>
-          </div>
-        );
-      })()}
-
-      {data && report === 'cycle' && (
-        <div className="det-card">
-          <div className="det-card-head">
-            <div className="title">Days spent in each stage — with per-advisor breakout</div>
-            <ExportBtn disabled={!data.cycle.rows.length} onClick={() => downloadCSV(`stage-cycle-time-${stamp}.csv`, toCSV(data.cycle.rows, [
-              { key: 'stage', label: 'Stage', value: (r) => label('PIPELINE_STATUS', r.stage) },
-              { key: 'avg_days', label: 'Avg days' }, { key: 'median_days', label: 'Median days' }, { key: 'count', label: 'Sample size' },
-              ...data.cycle.advisors.map((a) => ({ key: a, label: name(a) + ' (avg days)', value: (r) => r.by_advisor[a] })),
-            ]))} />
-          </div>
-          <div style={{ overflowX: 'auto' }}>
-            <table className="tmpl-tbl">
-              <thead><tr><th>Stage</th><th style={{ width: 100 }}>Avg days</th><th style={{ width: 100 }}>Median</th><th style={{ width: 90 }}>Sample</th>{data.cycle.advisors.map((a) => <th key={a} style={{ width: 140 }}>{name(a)}</th>)}</tr></thead>
-              <tbody>
-                {data.cycle.rows.map((r) => (
-                  <tr key={r.stage}>
-                    <td><Pill kind="pipeline" value={r.stage} /></td>
-                    <td className="mono" style={{ fontWeight: 600 }}>{r.avg_days}</td>
-                    <td className="mono muted">{r.median_days}</td>
-                    <td className="mono muted">{r.count}</td>
-                    {data.cycle.advisors.map((a) => <td key={a} className="mono">{r.by_advisor[a] ?? <span className="muted">—</span>}</td>)}
-                  </tr>
-                ))}
-                {!data.cycle.rows.length && <tr><td colSpan={4 + data.cycle.advisors.length} className="muted" style={{ textAlign: 'center', padding: 24 }}>No stage changes recorded yet — this fills in as projects move through the pipeline.</td></tr>}
-              </tbody>
-            </table>
-          </div>
-          <div style={{ padding: '10px 16px' }} className="muted small">Raw durations from stage-change timestamps (ProjectStageHistory). No SLA targets applied.</div>
-        </div>
-      )}
+      {data && report === 'pipeline' && <PipelineReport intervals={data.intervals} />}
+      {data && report === 'cycle' && <CycleReport intervals={data.intervals} />}
 
       {data && report === 'advisor' && (
         <div className="det-card">

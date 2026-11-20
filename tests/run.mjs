@@ -494,11 +494,28 @@ test('reports compute from live data', () => {
   const gas = fresh();
   gas.call('createPro', { fields: { org_id: '8', business_name: 'Eight', assigned_advisor_email: ADV_A, at_risk: true, at_risk_reason: 'Unresponsive' } });
   const p = gas.call('createProject', { fields: { org_id: '8', filing_type: 'S_CORP', tax_year: 2024, filing_deadline: '2025-03-15' } }).project;
+  // a return that was already in Doc gathering when it was created (e.g. imported from Asana)
+  const mid = gas.call('createProject', { fields: { org_id: '8', filing_type: 'F1040_SCHC', tax_year: 2025, pipeline_status: 'DOC_GATHERING' } }).project;
+  // both were created 3 days ago
+  const hist = gas.spreadsheet().getSheetByName('ProjectStageHistory');
+  const at = hist.data[0].indexOf('changed_at');
+  for (let i = 1; i < hist.data.length; i++) hist.data[i][at] = new Date(Date.now() - 3 * 86400000).toISOString();
+  gas.ctx.Db.clearCache();
   gas.call('updateProject', { project_id: p.project_id, patch: { pipeline_status: 'PREP' } });
+  gas.call('updateProject', { project_id: mid.project_id, patch: { pipeline_status: 'PREP' } });
+  gas.call('updateProject', { project_id: p.project_id, patch: { pipeline_status: 'QA' } }); // a catch-up click seconds later
   const r = gas.call('getReports', {});
-  assert.equal(r.pipeline.find(x => x.stage === 'PREP').count, 1);
-  assert.equal(r.pipeline.find(x => x.stage === 'PREP').overdue, 1);
-  assert.equal(r.cycle.rows.find(x => x.stage === 'IN_QUEUE').count, 1);
+  assert.equal(r.pipeline.find(x => x.stage === 'QA').count, 1);
+  assert.equal(r.pipeline.find(x => x.stage === 'QA').overdue, 1);
+  const q = r.cycle.rows.find(x => x.stage === 'IN_QUEUE');
+  assert.equal(q.count, 1);
+  assert.equal(q.avg_days, 3);
+  assert.ok(!r.cycle.rows.find(x => x.stage === 'DOC_GATHERING'), 'a stay that began before Tax Manager is left out');
+  assert.ok(!r.cycle.rows.find(x => x.stage === 'PREP'), 'a stay under an hour is left out');
+  assert.equal(r.intervals.length, 3);
+  assert.equal(r.intervals.find(x => x.stage === 'DOC_GATHERING').partial, true);
+  assert.equal(r.intervals.find(x => x.stage === 'PREP').quick, true);
+  assert.equal(r.intervals.find(x => x.stage === 'IN_QUEUE').advisor_email, ADV_A);
   assert.equal(r.risk.length, 1);
   assert.ok(r.advisor.find(a => a.advisor_email === ADV_A).open_projects >= 1);
   assert.ok(r.balance.next);

@@ -290,7 +290,7 @@ export function SkinPicker() {
   return (
     <label className="tb-skin" title="Pick a contest skin (only changes how the app looks for you)">
       <select aria-label="Skin" value={SKINS[prefs.skin] ? prefs.skin : ''} onChange={(e) => savePrefs({ skin: e.target.value })}>
-        <option value="">Classic (no skin)</option>
+        <option value="">Classic</option>
         {SKIN_ORDER.map((id) => <option key={id} value={id}>{SKINS[id].name}</option>)}
       </select>
     </label>
